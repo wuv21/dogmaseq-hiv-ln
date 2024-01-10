@@ -47,7 +47,7 @@ arrowfiles <- createArrowFiles(
 addArchRThreads(threads = 24)
 
 initProjDir <- "dogma_init"
-qcFiltProjDir <- "dogma_lsi"
+qcFiltProjDir <- "dogma_lsiHarmony"
 if (!dir.exists(qcFiltProjDir)) {
   proj <- ArchRProject(
     ArrowFiles = arrowfiles,
@@ -279,38 +279,6 @@ if (!dir.exists(qcFiltProjDir)) {
   projUnhashed$donor <- cellDf$participant_ID
   projUnhashed$chip <- cellDf$chip
 
-  # harmonyParams <- list()
-  # harmonyParams$data_mat <- getReducedDims(
-  #   ArchRProj = projUnhashed, 
-  #   reducedDims = "LSI_RNA", 
-  #   dimsToUse = NULL, 
-  #   scaleDims = NULL, 
-  #   corCutOff = 0.75
-  # )
-  # harmonyParams$verbose <- TRUE
-  # harmonyParams$meta_data <- data.frame(getCellColData(
-  #   ArchRProj = projUnhashed, 
-  #   select = "chip")[rownames(harmonyParams$data_mat), , drop = FALSE])
-  # harmonyParams$do_pca <- FALSE
-  # harmonyParams$vars_use <- "donor"
-  # harmonyParams$plot_convergence <- FALSE
-  # 
-  # harmonyRes <- harmony::RunHarmony(
-  #   data_mat = harmonyParams$data_mat,
-  #   meta_data = harmonyParams$meta_data,
-  #   vars_use = "donor",
-  #   verbose = TRUE
-  # )
-  # 
-  # harmonyParams$meta_data <- data.frame(getCellColData(
-  #   ArchRProj = projUnhashed, 
-  #   select = "Sample")[rownames(harmonyParams$data_mat), , drop = FALSE])
-  # 
-  # tmp <- Reduce(rbind, lapply("Sample", function(var_use) {
-  #   res <- Matrix::sparse.model.matrix(~0 + as.factor(harmonyParams$meta_data[[var_use]]))
-  #   Matrix::t(res)
-  # }))
-  
   projUnhashed <- addHarmony(
     ArchRProj = projUnhashed,
     reducedDims = "LSI_ATAC",
@@ -334,23 +302,35 @@ if (!dir.exists(qcFiltProjDir)) {
   projUnhashed <- addUMAP(projUnhashed, reducedDims = "Harmony_LSI_RNA", name = "Harmony_UMAP_RNA", minDist = 0.8, force = TRUE)
   projUnhashed <- addUMAP(projUnhashed, reducedDims = "Harmony_LSI_Combined", name = "Harmony_UMAP_Combined", minDist = 0.8, force = TRUE)
   
-  # TODO Initial clustering
+  # need to label differently so that Seurat can accept it
+  projUnhashed@reducedDims$HarmonyLsiForSeurat <- projUnhashed@reducedDims$Harmony_LSI_Combined
+  colnames(projUnhashed@reducedDims$HarmonyLsiForSeurat$matRD) <- paste0("tmp", c(1: ncol(projUnhashed@reducedDims$HarmonyLsiForSeurat$matRD)))
+  
+  # Initial clustering
   projUnhashed <- addClusters(
     input = projUnhashed,
-    reducedDims = "Harmony_LSI_Combined",
-    name = "Clusters",
-    resolution = 0.3,
+    reducedDims = "HarmonyLsiForSeurat",
+    name = "Clusters_v1",
+    method = "Seurat",
+    resolution = 0.5,
     force = TRUE
   )
   
-  # TODO add back HIV RNA count info
-  hivCounts
+  # add back HIV RNA count info
+  projUnhashed$HIV_nUMI <- 0
+  hivCounts <- hivCounts[projUnhashed$cellNames]
+  projUnhashed$HIV_nUMI <- hivCounts
   
+  # save archr project
   projUnhashed <- saveArchRProject(
     ArchRProj = projUnhashed,
     outputDirectory = qcFiltProjDir,
     load = TRUE
   )
+  
+  # save adt/hto seurat object
+  saveRDS(seuMerged, "rds/adtHto_matched_final.rds")
+  
 } else {
   projUnhashed <- loadArchRProject(
     path = qcFiltProjDir,
