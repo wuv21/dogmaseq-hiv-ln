@@ -1,0 +1,23 @@
+C1,CD4 Treg #2
+C2,CD4 Tcm #1
+C3,CD4 Tcm #2
+C4,CD4 Th2/non-resident
+C5,CD4 Tcm/non resident
+C6,CD4 Trm #1
+C7,Mix (CD4 T transitional + unknown)
+C8,CD4 NR4A1/NR4A2 hi
+C9,CD4 Tem
+C10,Other (contaminant)
+C11,CD4 Tn/early memory
+C12,CD4 Trm #2
+C13,CD4 Tscm/early memory #1
+C14,CD4 Tcm/non resident
+C15,CD4 Treg #1
+C16,CD4 Treg activated
+C17,CD4 CD127+ Tem
+C18,CD4 IKZF1+ Tem
+C19,CD4 PRDM1- GC-Tfh
+C20,CD4 PRDM1+ GC-Tfh
+C21,CD3 DN CD45RA+ mix
+C22,Mix (CD3 DN + memory CD4) #2
+C23,Mix (CD3 DN + memory CD4) #1

@@ -1,3 +1,5 @@
+# renv::load("/data/hiv_ln_dogma/hiv_ln_dogma_archr")
+
 suppressMessages(library(ArchR))
 suppressMessages(library(GenomicFeatures))
 suppressMessages(library(rtracklayer))
@@ -8,7 +10,7 @@ suppressMessages(library(dplyr))
 
 set.seed(42)
 
-addArchRThreads(threads = 48)
+addArchRThreads(threads = 36)
 addArchRGenome("hg38")
 
 source("scripts/initialSeuratListMaker.R")
@@ -25,6 +27,10 @@ amuletOutDir <- "../hiv_ln_dogma_data/amulet_out/"
 # generate arrow files
 ################################################################################
 samples <- list.files(cellrangerOutDir)
+
+# omit sample 98 because of clog
+samples <- samples[samples != "98"]
+
 fragmentsFns <- paste0(cellrangerOutDir, samples, "/outs/atac_fragments.tsv.gz")
 
 chrNames <- read.table("chrnames/all.chrnames.txt", header = FALSE)
@@ -34,20 +40,20 @@ chrNamesDiscard <- c(chrNamesDiscard, chrNames[grepl("^(KI|GL)", chrNames[, 1]),
 arrowfiles <- createArrowFiles(
   inputFiles = fragmentsFns,
   sampleNames = samples,
-  outputNames = paste0("origArrow/", samples),
+  outputNames = paste0("origArrow_v2/", samples),
   minTSS = 4,
   minFrags = 1000,
   addTileMat = TRUE,
   excludeChr = chrNamesDiscard,
-  subThreading = TRUE,
+  subThreading = FALSE,
   force = FALSE,
   addGeneScoreMat = TRUE)
 
 # setting it lower to reduce RAM usage
 addArchRThreads(threads = 24)
 
-initProjDir <- "dogma_init"
-qcFiltProjDir <- "dogma_lsiHarmony"
+initProjDir <- "dogma_init_v2"
+qcFiltProjDir <- "dogma_lsi_Harmony_v2"
 if (!dir.exists(qcFiltProjDir)) {
   proj <- ArchRProject(
     ArrowFiles = arrowfiles,
@@ -75,12 +81,12 @@ if (!dir.exists(qcFiltProjDir)) {
     names = samples
   )
   
-  # intersection barcodes in atac and rna
+  # intersection of barcodes in atac and rna
   multiBcs <- intersect(projQcFilter$cellNames, colnames(seRNA))
   projQcFilter <- subsetArchRProject(
     cells = multiBcs,
     ArchRProj = projQcFilter,
-    outputDirectory = "dogma_subsetMatched",
+    outputDirectory = "dogma_subsetMatched_v2",
   )
   
   # extract HIV RNA counts
@@ -203,13 +209,22 @@ if (!dir.exists(qcFiltProjDir)) {
       Sample >= 25 & Sample <= 32 ~ hashedID %in% c("A0251", "A0252"),
       Sample >= 33 & Sample <= 62 ~ hashedID %in% c("A0253", "A0254", "A0256", "A0257", "A0258"),
       Sample >= 63 & Sample <= 80 ~ hashedID %in% c("A0251", "A0252", "A0253"),
+      Sample >= 81 & Sample <= 88 ~ hashedID %in% c("A0251", "A0252"),
+      Sample >= 89 & Sample <= 96 ~ hashedID %in% c("A0253", "A0254"),
+      Sample >= 97 & Sample <= 105 ~ hashedID %in% c("A0256", "A0257", "A0258"),
     )) %>%
     filter(check)
+  
+  seuMerged$cellName <- names(seuMerged$orig.ident)
+  seuMergedFinal <- subset(seuMerged, subset = cellName %in% tmp$cbc)
+  
+  # save adt/hto seurat object
+  saveRDS(seuMergedFinal, "rds/adtHto_matched_final.rds")
   
   projUnhashed <- subsetArchRProject(
     cells = tmp$cbc,
     ArchRProj = projQcFilter,
-    outputDirectory = "dogma_unhashed",
+    outputDirectory = "dogma_unhashed_v2",
   )
   
   rm(tmp)
@@ -218,108 +233,71 @@ if (!dir.exists(qcFiltProjDir)) {
   ##############################################################################
   # perform iterative LSI
   ##############################################################################
-  projUnhashed <- addIterativeLSI(
-    ArchRProj = projUnhashed,
-    useMatrix = "TileMatrix",
-    depthCol = "nFrags",
-    saveIterations = FALSE,
-    name = "LSI_ATAC",
-    iterations = 2,
-    clusterParams = list(
-      resolution = 0.2, 
-      sampleCells = 125000,
-      n.start = 10,
-      maxClusters = 30
-    )
-  )
-  
-  projUnhashed <- addIterativeLSI(
-    ArchRProj = projUnhashed, 
-    clusterParams = list(
-      resolution = 0.2, 
-      sampleCells = 125000,
-      n.start = 10,
-      maxClusters = 30
-    ),
-    saveIterations = FALSE,
-    useMatrix = "GeneExpressionMatrix", 
-    depthCol = "Gex_nUMI",
-    varFeatures = 2500,
-    firstSelection = "variable",
-    binarize = FALSE,
-    name = "LSI_RNA"
-  )
-  
-  ##############################################################################
-  # add information to ArchRProj and metadata
-  ##############################################################################
+  # addArchRThreads(threads = 16)
+  # 
+  # projUnhashed <- addIterativeLSI(
+  #   ArchRProj = projUnhashed,
+  #   useMatrix = "TileMatrix",
+  #   depthCol = "nFrags",
+  #   saveIterations = FALSE,
+  #   name = "LSI_ATAC",
+  #   iterations = 2,
+  #   clusterParams = list(
+  #     resolution = 0.2, 
+  #     sampleCells = 125000,
+  #     n.start = 10,
+  #     maxClusters = 30
+  #   )
+  # )
+  # 
+  # projUnhashed <- addIterativeLSI(
+  #   ArchRProj = projUnhashed, 
+  #   clusterParams = list(
+  #     resolution = 0.2, 
+  #     sampleCells = 125000,
+  #     n.start = 10,
+  #     maxClusters = 30
+  #   ),
+  #   saveIterations = FALSE,
+  #   useMatrix = "GeneExpressionMatrix", 
+  #   depthCol = "Gex_nUMI",
+  #   varFeatures = 2500,
+  #   firstSelection = "variable",
+  #   binarize = FALSE,
+  #   name = "LSI_RNA"
+  # )
+  # 
+  # ##############################################################################
+  # # add information to ArchRProj and metadata
+  # ##############################################################################
   hashedMeta <- read.csv("meta/hiv_ln_dogma_completeMeta_hashed.csv")
   unhashedMeta <- read.csv("meta/hiv_ln_dogma_completeMeta_unhashed.csv")
-  
+
   hashedMeta <- hashedMeta %>%
     mutate(hashedSample = as.character(hashedSample)) %>%
     rename(PoolName = Sample)
-  
+
   cellDf <- getCellColData(projUnhashed,
     select = c("Sample", "hashedID")) %>%
     as.data.frame(.) %>%
     mutate(cbc = rownames(.))
-  
+
   rownames(cellDf) <- NULL
-  
+
   cellDf <- cellDf %>%
     left_join(hashedMeta, by = c("Sample" = "hashedSample")) %>%
     left_join(unhashedMeta, by = join_by("PoolName" == "Pool", "hashedID" == "HTO_antibody"))
-  
+
   cellDf <- cellDf %>%
     select(-Sort_Day, -Old_number, -Day_of_sample_ID, -Well_number)
-  
+
   projUnhashed$pool <- cellDf$PoolName
-  projUnhashed$sortDate <- cellDf$date_of_sort
+  projUnhashed$sortDate <- cellDf$sort_date
   projUnhashed$donor <- cellDf$participant_ID
   projUnhashed$chip <- cellDf$chip
 
-  projUnhashed <- addHarmony(
-    ArchRProj = projUnhashed,
-    reducedDims = "LSI_ATAC",
-    name = "Harmony_LSI_ATAC",
-    groupBy = c("donor", "chip")
-  )
-  
-  projUnhashed <- addHarmony(
-    ArchRProj = projUnhashed,
-    reducedDims = "LSI_RNA",
-    name = "Harmony_LSI_RNA",
-    groupBy = c("donor", "chip")
-  )
-  
-  # Combined Dims
-  projUnhashed <- addCombinedDims(projUnhashed, reducedDims = c("LSI_ATAC", "LSI_RNA"), name =  "LSI_Combined")
-  projUnhashed <- addCombinedDims(projUnhashed, reducedDims = c("Harmony_LSI_ATAC", "Harmony_LSI_RNA"), name =  "Harmony_LSI_Combined")
-  
-  # UMAP
-  projUnhashed <- addUMAP(projUnhashed, reducedDims = "Harmony_LSI_ATAC", name = "Harmony_UMAP_ATAC", minDist = 0.8, force = TRUE)
-  projUnhashed <- addUMAP(projUnhashed, reducedDims = "Harmony_LSI_RNA", name = "Harmony_UMAP_RNA", minDist = 0.8, force = TRUE)
-  projUnhashed <- addUMAP(projUnhashed, reducedDims = "Harmony_LSI_Combined", name = "Harmony_UMAP_Combined", minDist = 0.8, force = TRUE)
-  
-  # need to label differently so that Seurat can accept it
-  projUnhashed@reducedDims$HarmonyLsiForSeurat <- projUnhashed@reducedDims$Harmony_LSI_Combined
-  colnames(projUnhashed@reducedDims$HarmonyLsiForSeurat$matRD) <- paste0("tmp", c(1: ncol(projUnhashed@reducedDims$HarmonyLsiForSeurat$matRD)))
-  
-  # Initial clustering
-  projUnhashed <- addClusters(
-    input = projUnhashed,
-    reducedDims = "HarmonyLsiForSeurat",
-    name = "Clusters_v1",
-    method = "Seurat",
-    resolution = 0.5,
-    force = TRUE
-  )
-  
   # add back HIV RNA count info
   projUnhashed$HIV_nUMI <- 0
-  hivCounts <- hivCounts[projUnhashed$cellNames]
-  projUnhashed$HIV_nUMI <- hivCounts
   
   # save archr project
   projUnhashed <- saveArchRProject(
@@ -327,9 +305,6 @@ if (!dir.exists(qcFiltProjDir)) {
     outputDirectory = qcFiltProjDir,
     load = TRUE
   )
-  
-  # save adt/hto seurat object
-  saveRDS(seuMerged, "rds/adtHto_matched_final.rds")
   
 } else {
   projUnhashed <- loadArchRProject(

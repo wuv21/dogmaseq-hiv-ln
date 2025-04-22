@@ -3,13 +3,19 @@ createMatFromKallisto <- function(
   dir,
   dataMode,
   emptyDropsLower = 100,
-  outRDSPath = paste0("rds/", sample, ".rds"),
+  outRDSPath = paste0("rds/", dataMode, "/", sample, ".rds"),
   sampleSuffix = "_count_out",
   runEmptyDrops = TRUE,
   kallistoPrefix = "output")
 {
   
   stopifnot(dataMode %in% c("ADT", "HTO"))
+  
+  if (file.exists(outRDSPath)) {
+    mat <- readRDS(outRDSPath)
+    
+    return(mat)
+  }
   
   bus_output <- read.table(file = glue("{dir}/{sample}{sampleSuffix}/{kallistoPrefix}.mtx"), header = FALSE, skip = 4)
   feats <- read.table(file = glue("{dir}/{sample}{sampleSuffix}/{kallistoPrefix}.genes.txt"), header = FALSE)
@@ -23,7 +29,7 @@ createMatFromKallisto <- function(
   rownames(count_matrix) <- feats$V1
   colnames(count_matrix) <- cbcs$V1
   
-  if (dataMode == "ADT" && !file.exists(outRDSPath)) {
+  if (dataMode == "ADT") {
     
     if (runEmptyDrops) {
       empty_calc <- emptyDrops(count_matrix, lower = emptyDropsLower)
@@ -37,10 +43,6 @@ createMatFromKallisto <- function(
       return(count_matrix)
     }
     
-  } else if (dataMode == "ADT") {
-    adt <- readRDS(outRDSPath)
-    
-    return(adt)
   } else {
     return(count_matrix)
   }
