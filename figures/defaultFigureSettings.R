@@ -11,6 +11,7 @@ suppressMessages(library(ComplexHeatmap))
 BASEPTAXISFONTSIZE <- 8
 BASEPTFONTSIZE <- 8
 BASEFONTSIZE <- BASEPTFONTSIZE / ggplot2:::.pt
+BASELINEWIDTHSIZE <- 12/14
 
 
 plotTagTheme <- theme(
@@ -59,6 +60,23 @@ unclipStripText <- function(g) {
   
   return(g2)
 }
+
+# draw positive error bar only
+mean_se_onlyPos <- function(x, mult = 1) {
+  x <- stats::na.omit(x)
+  se <- mult * sqrt(stats::var(x)/length(x))
+  mean <- mean(x)
+  return(mean + se)
+  # data_frame(ymin = mean, ymax = mean)
+}
+
+mean_se_onlyPosVertical <- function(x, mult = 1) {
+  x <- stats::na.omit(x)
+  se <- mult * sqrt(stats::var(x)/length(x))
+  mean <- mean(x)
+  data_frame(ymin = mean, ymax = mean + se)
+}
+
 
 saveFinalFigure <- function(
   plot,
