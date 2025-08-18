@@ -4,8 +4,11 @@ library(ggrastr)
 library(cowplot)
 library(ggpubr)
 library(ArchR)
+library(Seurat)
 
 load("rdata/chronicSub2_deviations_2025-02-26-01-56.Rdata")
+
+set.seed(42)
 
 source("figures/defaultFigureSettings.R")
 source("scripts/graphs.R")
@@ -15,8 +18,30 @@ source("scripts/colorPalettes.R")
 # B Disease State UMAP
 # C Cell Identity UMAP
 # D distribution of cells by stage
+
+################################################################################
+# fig 1 umap
+################################################################################
+
+# seumerged for spatial
+# seuMerged$manualAnnot <- trimws(seuMerged$manualAnnot)
+# seuMerged$MULTI_ID <- NULL
+# seuMerged$MULTI_classification <- NULL
+# seuMerged$haystackOut <- NULL
+# seuMerged$isBCell <- NULL
+# seuMerged$isApcNk <- NULL
+# seuMerged$isCD4 <- NULL
+# seuMerged$hivPos <- NULL
+# seuMerged$Clusters_v3 <- NULL
+# seuMerged$Clusters_v2 <- NULL
+# seuMerged$hivStatus <- NULL
+# seuMerged$gex_UMI <- NULL
 # 
+# seuMerged[['HTO']] <- NULL
+# seuMerged[['ADT']] <- NULL
 # 
+# saveRDS(seuMerged, file = "rds/seuMerged_sanitized_for_cillian_20250813.rds")
+
 
 projUnhashedClean$stage <- ifelse(projUnhashedClean$stage == "Chronic", "Viremic", projUnhashedClean$stage)
 
@@ -48,6 +73,7 @@ umapTheme <- theme(
   axis.title = element_text(size = BASEPTFONTSIZE),
   axis.text = element_text(size = BASEPTAXISFONTSIZE),
   legend.spacing.x = unit(BASEPTFONTSIZE / 2, 'points'),
+  axis.line = element_line(color = "#000000", linewidth = BASELINEWIDTHSIZE),
   plot.title = element_text(size = BASEPTFONTSIZE, hjust = 0.5),
   plot.title.position = "panel",
   legend.key.size = unit(BASEPTFONTSIZE * 1.1, 'points'),
@@ -132,10 +158,11 @@ figA <- figA + umapPlotThemeNoLeg
 figB <- figB + umapPlotThemeNoLeg
 figC <- figC + umapPlotThemeNoLeg
 
-figABC <- figA + figB + figC + plot_annotation(tag_levels = "A")
+figABC <- figA + figB + figC + plot_annotation(tag_levels = "A") & plotTagTheme
 
-
-### fig d cluster prop by stage and donor
+################################################################################
+# fig d cluster prop by stage and donor
+################################################################################
 figDData <- umapDf %>% 
   dplyr::group_by(stage, manualAnnot, donor) %>%
   dplyr::tally(name = "totalCells") %>%
@@ -153,12 +180,15 @@ figDData %>%
 
 figD <- figDData %>%
   ggplot(aes(x = percentOfDonor, y = manualAnnot)) +
+  geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
+  geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_boxplot(alpha = 1, outlier.shape = NA, width = 0.5) +
   geom_point(pch = 21, aes(fill = stage), alpha = 0.5, color = "#000000", stroke = 0.5, size = 1.2) +
   facet_wrap(~ stage, nrow = 1) +
   scale_fill_manual(values = COLORS$stage) +
-  theme_bw() +
+  theme_classic() +
   theme(
+    axis.line.x = element_blank(),
     strip.background = element_rect(color = "#ffffff", fill = "#ffffff"),
     strip.text = element_text(color = "#000000", size = BASEPTFONTSIZE),
     axis.text = element_text(color = "#000000", size = BASEPTFONTSIZE),
@@ -167,6 +197,7 @@ figD <- figDData %>%
     legend.position = "blank",
     panel.grid.major.x = element_blank(),
     plot.margin = margin(t = 30,0,0,0),
+    panel.grid.major.y = element_line(color = "#dddddd50"),
     plot.background = element_rect(color = "#ffffff00", fill = "#ffffff00"),
     panel.background = element_rect(color = "#ffffff00", fill = "#ffffff00"),
     panel.grid.minor.x = element_blank()
@@ -175,6 +206,97 @@ figD <- figDData %>%
   labs(
     x = "% of each donor's cells")
 
+
+################################################################################
+# sup fig 2
+################################################################################
+baseGenesForAnnotation_v2 <- read.table("manualAnnot/baseGenesForAnnotation_v2.txt")$V1
+
+seuMerged$manualAnnot <- trimws(seuMerged$manualAnnot)
+
+# base rna
+rnaBasePlot <- DotPlot(
+  seuMerged,
+  dot.scale = 5,
+  col.max = 3,
+  col.min = -3,
+  features = paste0("rna_", baseGenesForAnnotation_v2),
+  group.by = "manualAnnot") +
+  scale_y_discrete(limits = uniqAnnots) +
+  scale_x_discrete(labels = ~ gsub("rna_", "", .x)) +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.text.y = element_text(size = BASEPTFONTSIZE - 3, color = "#000000"),
+    panel.grid.major.y = element_line(color = "#efefef"),
+    axis.title = element_blank(),
+    legend.key.size = unit(6, "pt"),
+    legend.title = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", hjust = 0.5),
+    legend.text = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"))
+
+rnaBasePlot$guides$guides$colour$params$title <- "Average\nExpression"
+rnaBasePlot$guides$guides$size$params$title <- "% Expressed"
+
+
+# base atac
+baseGenesForAtac <- c("CD3D", "CD69", "CCR7", "CD27", "CD28",
+  "IL2RA", "ITGAE", "PDCD1", "TGFB1", "FAS", "PRDM1", "CXCR5", "BCL6",
+  "CCR5", "FOXP3", "IL2", "IL4", "STAT3", "ZNF683", "KLF2",
+  "GATA3", "RORC", "NFKB1", "TOX")
+atacGeneScoreForAnnot_v3 <- tryCatch({
+  tmp <- ArchR:::.getMatrixValues(
+    ArchRProj = projUnhashedClean,
+    name = baseGenesForAtac,
+    matrixName = "GeneScoreMatrix",
+    log2Norm = FALSE,
+    threads = getArchRThreads()
+  )
+},
+  error = function(cond) {
+    message(conditionMessage(cond))
+    # Choose a return value in case of error
+    return(NULL)
+  })
+
+atacGeneScoreForAnnotImputed_v3 <- imputeMatrix(
+  mat = as.matrix(atacGeneScoreForAnnot_v3),
+  imputeWeights = getImputeWeights(projUnhashedClean))
+
+atacGeneScoreForAnnotImputed_v3 <- log2(atacGeneScoreForAnnotImputed_v3 + 1)
+
+atacImputedDf_v3 <- data.frame(
+  cbc = projUnhashedClean$cellNames,
+  manualAnnot = projUnhashedClean$manualAnnot
+)
+rownames(atacImputedDf_v3) <- atacImputedDf_v3$cbc
+atacImputedDf_v3[colnames(atacGeneScoreForAnnotImputed_v3), baseGenesForAtac] <- t(atacGeneScoreForAnnotImputed_v3)
+
+atacImputedDf_v3 <- atacImputedDf_v3 %>%
+  pivot_longer(cols = -any_of(c("cbc", "manualAnnot")), names_to = "feature", values_to = "exp")
+
+atacImputePlot_v3 <- atacImputedDf_v3 %>%
+  mutate(manualAnnot = trimws(manualAnnot)) %>%
+  ggplot(aes(x = manualAnnot, y = exp)) +
+  geom_violin(aes(color = manualAnnot), width = 1, fill = "#ffffff00") +
+  facet_wrap(~ feature, scales = "free_y", nrow = 10) +
+  scale_color_manual(values = annotColorScale) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = BASEPTFONTSIZE - 3),
+    axis.text.y = element_text(size = BASEPTFONTSIZE - 3),
+    strip.text = element_text(size = BASEPTFONTSIZE - 3),
+    plot.margin = margin(l = 18),
+    strip.background = element_rect(color = "#00000000", fill = "#00000000"),
+    legend.position = "blank",
+    panel.grid = element_blank(),
+    axis.title.y = element_text(size = BASEPTFONTSIZE),
+    axis.title.x = element_blank()) +
+  labs(
+    y = "imputed log2(counts + 1)")
+
+
+################################################################################
+# final plot saving
+################################################################################
 
 layout <- c(
   area(1, 1, 2, 6), #abc
@@ -188,6 +310,21 @@ p <- wrap_elements(full = figABC, ignore_tag = TRUE) +
   wrap_elements(panel = c_legend, ignore_tag = TRUE, clip = FALSE) +
   wrap_elements(full = figD) + theme(plot.tag = element_text(margin = margin(t = 30))) +
   plot_annotation(tag_levels = list(c("D"))) +
-  plot_layout(design = layout)
+  plot_layout(design = layout) &
+  plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig1_v1", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 7, gheight = 7)
+saveFinalFigure(plot = p, fn = "fig1_v2", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 7, gheight = 7)
+
+
+supLayout <- c(
+  area(1, 1, 4, 10),
+  area(5, 1, 9, 10)
+)
+
+supP <- free(rnaBasePlot, type = "panel", side = "lr") +
+  free(atacImputePlot_v3, type = "space", side = "lr") +
+  plot_annotation(tag_levels = "A") +
+  plot_layout(design = supLayout) &
+  plotTagTheme
+
+saveFinalFigure(plot = supP, fn = "supfig2_v2", prefixDir = "figures/outs", devices = c("png"), gwidth = 8, gheight = 10)

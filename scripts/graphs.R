@@ -1672,6 +1672,8 @@ plotUpsetHivStats <- function(
   gwidth = 2.5,
   returnPlot = FALSE,
   devices = c("png", "rds"),
+  barTextSize = BASEFONTSIZE - 1,
+  stripPlacement = "top",
   groupingVector = NULL
 ) {
   
@@ -1715,7 +1717,7 @@ plotUpsetHivStats <- function(
   
   barPlot <- df %>%
     ggplot(aes(x = rowID, y = n)) +
-    geom_text(aes(label = n, y = nudge), size = BASEFONTSIZE - 1) +
+    geom_text(aes(label = n), size = barTextSize, vjust = -0.3) +
     scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
     scale_x_discrete(drop = FALSE) +
     coord_cartesian(clip = "off") +
@@ -1734,7 +1736,7 @@ plotUpsetHivStats <- function(
   if (!is.null(groupingVector)) {
     barPlot <- barPlot + 
       geom_bar(stat = "identity", width = 0.5, aes(fill = grouping), show.legend = FALSE) +
-      facet_wrap(~ grouping, scales = "free", strip.position = "top", ncol = 1)
+      facet_wrap(~ grouping, scales = "free", strip.position = stripPlacement, ncol = 1)
   } else {
     barPlot <- barPlot + 
       geom_bar(stat = "identity", width = 0.5, fill = "#000000")

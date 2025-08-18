@@ -12,6 +12,7 @@ library(Seurat)
 
 load("rdata/chronicSub2_deviations_2025-02-26-01-56.Rdata")
 
+set.seed(42)
 
 source("figures/defaultFigureSettings.R")
 source("scripts/graphs.R")
@@ -63,7 +64,7 @@ propClusterG <- propClusterDf %>%
   ggplot(aes(x = percent, y = manualAnnotLabel, color = infection)) +
   geom_linerange(aes(xmin = 0, xmax = percent), position = position_dodge(0.7), linetype = "dotted", show.legend = FALSE) +
   geom_point(aes(group = infection), position = position_dodge(0.7), alpha = 1, size = 0.5) +
-  geom_text(aes(group = infection, label = percentLabel), vjust = 0.5, hjust = -0.15, position = position_dodge(0.7), size = 1.6, show.legend = FALSE) +
+  geom_text(aes(group = infection, label = percentLabel), vjust = 0.5, hjust = -0.15, position = position_dodge(0.7), size = 1.4, show.legend = FALSE) +
   facet_wrap(~ stage, scales = "free", nrow = 1) +
   coord_cartesian(clip = "off") +
   scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.2))) +
@@ -118,13 +119,22 @@ prdmByDonor <- data.frame(
     percent = ifelse(is.nan(percent), 0, percent)) %>%
   dplyr::filter(infection != "HIV-")
 
+
+prdmByDonorCompiledStats <- ggpubr::compare_means(percent ~ infection,
+  prdmByDonor %>% dplyr::filter(manualAnnot == "CD4 PRDM1+ GC-Tfh"),
+  group.by = "stage", paired = TRUE)
+prdmByDonorCompiledStats$p.sym <- pValSymnum(prdmByDonorCompiledStats$p.adj)
+
 prdmByDonorG <- prdmByDonor %>% 
   dplyr::filter(manualAnnot == "CD4 PRDM1+ GC-Tfh") %>%
-  ggplot(aes(y = percent, x = infection, fill = infection)) +
+  ggplot(aes(y = percent, x = infection)) +
+  ggpubr::stat_pvalue_manual(
+    prdmByDonorCompiledStats, label = "{p.sym}",
+    y.position = c(13.5, 0.35), size = BASEFONTSIZE * 0.6, vjust = 0, tip.length = 0.01) +
   stat_summary(geom = "bar", width = 0.6, fun = mean, fill = "#ffffff00", aes(color = infection)) +
   geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_hline(yintercept = 0, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
-  geom_jitter(color = "#000000", pch = 21, height = 0, alpha = 0.75, size = 0.8, show.legend = FALSE, width = 0.2) +
+  geom_jitter(aes(fill = infection), color = "#000000", pch = 21, height = 0, alpha = 0.75, size = 0.8, show.legend = FALSE, width = 0.2) +
   stat_summary(fun = mean_se_onlyPos, geom = "crossbar", width = 0.3, linewidth = 0.3) +
   stat_summary(fun.data = mean_se_onlyPosVertical, geom = "linerange", linewidth = 0.3) +
   facet_wrap(~ stage, scales = "free_y") +
@@ -169,8 +179,7 @@ depletionDf <- data.frame(
     totalCells = sum(nCells),
     percent = nCells / totalCells * 100)
 
-
-depletionDfG <- data.frame(
+depletionDf2 <- data.frame(
   donor = projUnhashedClean$donorClean2,
   stage = projUnhashedClean$stage,
   manualAnnot = projUnhashedClean$manualAnnot
@@ -183,19 +192,46 @@ depletionDfG <- data.frame(
   dplyr::tally(name = "nCells") %>%
   dplyr::filter(grepl("Tfh", manualAnnot)) %>%
   dplyr::group_by(stage, donor) %>%
+  dplyr::mutate(manualAnnot = gsub("CD4 ", "", manualAnnot)) %>%
   dplyr::mutate(
     totalCells = sum(nCells),
     percent = nCells / totalCells * 100,
-    manualAnnot = factor(manualAnnot, levels = c("CD4 GC-Tfh #1", "CD4 GC-Tfh #2", "CD4 PRDM1+ GC-Tfh"))) %>%
-  ggplot(aes(y = percent, x = manualAnnot, fill = manualAnnot)) +
+) %>%
+  dplyr::arrange(manualAnnot, stage) %>%
+  dplyr::mutate(combinedFactor = paste0(manualAnnot, "_", stage)) %>%
+  dplyr::mutate(combinedFactor = factor(combinedFactor, levels = unique(combinedFactor)))
+
+
+depletionCompiledStats <- ggpubr::compare_means(percent ~ combinedFactor,
+  depletionDf2, paired = FALSE)
+
+depletionCompiledStats$p.sym <- pValSymnum(depletionCompiledStats$p.adj)
+depletionCompiledStats <- depletionCompiledStats %>%
+  dplyr::filter(p.sym != "ns") %>%
+  dplyr::mutate(p.position = 105 - 4.75 * (row_number() %% 7)) %>%
+  dplyr::select(-method, -p.signif, -p.format)
+
+depletionDfG <- depletionDf2 %>%
+  ggplot(aes(y = percent, x = combinedFactor)) +
   geom_line(aes(group = donor), color = "#bbbbbb75", linewidth = 0.3) +
-  stat_summary(geom = "bar", width = 0.6, fun = mean, fill = "#ffffff00", aes(color = manualAnnot)) +
+  stat_summary(geom = "bar", width = 0.6, fun = mean, fill = "#ffffff00", aes(color = stage)) +
   geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_hline(yintercept = 0, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_point(color = "#000000", pch = 21, alpha = 0.75, size = 0.8, show.legend = FALSE) +
+  guides(x = legendry::guide_axis_nested(
+    key = "_",
+    type = "bracket",
+    angle = 45,
+    levels_text = list(
+      NULL,
+      element_text(angle = 0, hjust = 0.5, vjust = 1, color = "#000000", size = 6)))) +
+  ggpubr::stat_pvalue_manual(
+    depletionCompiledStats,
+    label = "{p.sym}", y.position = "p.position",
+    size = BASEFONTSIZE * 0.7, vjust = 0.4, tip.length = 0.007, hide.ns = TRUE) +
   stat_summary(fun = mean_se_onlyPos, geom = "crossbar", width = 0.3, linewidth = 0.3) +
   stat_summary(fun.data = mean_se_onlyPosVertical, geom = "linerange", linewidth = 0.3) +
-  facet_wrap(~ stage, nrow = 1) +
+  scale_color_manual(values = COLORS$stage) +
   coord_cartesian(clip = "off") +
   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.08))) +
   theme_classic() +
@@ -204,7 +240,7 @@ depletionDfG <- data.frame(
     legend.position = "blank",
     axis.line = element_blank(),
     axis.text = element_text(color = "#000000"),
-    axis.text.x = element_text(color = "#000000", size = 6, angle = 45, hjust = 1, vjust = 1),
+    axis.text.x = element_text(color = "#000000", size = 6),
     axis.text.y = element_text(color = "#000000", size = 6),
     panel.grid = element_blank(),
     panel.grid.major.y = element_line(color = "#eeeeee", linetype = "dotted"),
@@ -213,6 +249,43 @@ depletionDfG <- data.frame(
     axis.title.x = element_blank(),
     strip.background = element_rect(color = "#ffffff00", fill = NA)) +
   labs(y = "% of donor's Tfh cells")
+
+
+Idents(seuMerged) = "manualAnnot"
+tmp <- FindMarkers(
+  seuMerged,
+  ident.1 = "CD4 GC-Tfh #1",
+  ident.2 = "CD4 GC-Tfh #2",
+  min.pct = 0.3,
+  assay = "ADT",
+  features = tsaCatalog[!tsaCatalog$isCtrl, "DNA_ID"])
+
+tmp %>%
+  filter(p_val_adj < 0.05) %>% 
+  mutate(DNA_ID = rownames(.)) %>%
+  mutate(direction = avg_log2FC > 0) %>%
+  dplyr::group_by(direction) %>%
+  left_join(tsaCatalog[, c("DNA_ID", "cleanName")]) %>%
+  dplyr::slice_max(abs(avg_log2FC), n = 15) %>%
+  print(n = 30)
+
+tmpRna <- FindMarkers(
+  seuMerged,
+  ident.1 = "CD4 GC-Tfh #1",
+  ident.2 = "CD4 GC-Tfh #2",
+  min.pct = 0.3,
+  assay = "RNA")
+
+tmpForCs <- tmpRna %>%
+  filter(p_val_adj < 0.05) %>% 
+  mutate(gene = rownames(.)) %>%
+  mutate(direction = avg_log2FC > 0) %>%
+  # dplyr::group_by(direction) %>%
+  filter(direction) %>%
+  dplyr::slice_max(abs(avg_log2FC), n = 100) 
+
+VlnPlot(seuMerged, features = c("STAT4"), group.by = "manualAnnot", pt.size = 0) + NoLegend()
+
 
 ################################################################################
 # DEA
@@ -270,13 +343,62 @@ dea_blimp1G <- dea_blimp1 %>%
     plot.margin = margin(r = -10, l = -15, t = 0, b = 25)
   )
 
+
+################################################################################
+# DEA by subset
+################################################################################
+dea_blimp1_subsetted <- lapply(unique(seuMerged$stage), function(x) {
+  dea <- FindMarkers(
+    object = subset(seuMerged, subset = stage == x),
+    ident.1 = "CD4 PRDM1+ GC-Tfh",
+    ident.2 = c("CD4 GC-Tfh #1", "CD4 GC-Tfh #2"),
+    min.pct = 0.3,
+    features = tsaCatalog[!tsaCatalog$isCtrl, "DNA_ID"],
+    assay = "ADT")
+  
+  dea <- dea %>%
+    dplyr::mutate(DNA_ID = rownames(.)) %>%
+    dplyr::mutate(padj2 = p.adjust(p_val, method = "BH"))
+  
+  return(dea)
+})
+
+names(dea_blimp1_subsetted) <- unique(seuMerged$stage)
+
+dea_blimp1_df <- bind_rows(dea_blimp1_subsetted, .id = "stage") %>%
+  left_join(tsaCatalog[, c("DNA_ID", "cleanName")]) %>%
+  dplyr::select(-p_val) %>%
+  dplyr::arrange(desc(avg_log2FC))  %>%
+  dplyr::mutate(direction = ifelse(avg_log2FC > 0, "Up in\nPRDM1+ GC-Tfh", "Up in\nPRDM1- GC-TFh")) %>%
+  dplyr::mutate(stage = factor(stage, levels = names(COLORS$stage))) %>%
+  dplyr::group_by(stage, direction) %>%
+  dplyr::slice_max(abs(avg_log2FC), n = 10) %>%
+  dplyr::group_by(stage) %>%
+  dplyr::arrange(desc(avg_log2FC), .by_group = TRUE) %>%
+  dplyr::mutate(cleanName = gsub(" \\(Neuropilin-1\\)", "", cleanName)) %>%
+  dplyr::mutate(cleanName = gsub(" \\(DNAM-1\\)", "", cleanName)) %>%
+  dplyr::mutate(cleanName = gsub(" \\(Ecto-5'-nucleotidase\\)", "", cleanName)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(rowCleanName = paste0(row_number(), "_", cleanName)) %>%
+  dplyr::mutate(rowCleanName = factor(rowCleanName, levels = rowCleanName))
+
+
+sup_blimp1_dea_plot <- ggplot(dea_blimp1_df, aes(x = avg_log2FC, y = rowCleanName, color = direction)) +
+  geom_linerange(aes(xmin = 0, xmax = avg_log2FC), linetype = "dotted") +
+  geom_point(size = 1) +
+  geom_vline(xintercept = 0) +
+  facet_wrap( ~ stage, scales = "free_y") +
+  scale_color_manual(values = c("#0000ff", "#ff0000")) +
+  scale_x_continuous(expand = expansion(mult = c(0.2, 0.1))) +
+  scale_y_discrete(labels = function(x) gsub("\\d+_", "", x)) +
+  labs(x = "Average log2(FC)") +
+  deLollipopTheme
+
 ################################################################################
 # DEG
 ################################################################################
-seuMergedTfh <- subset(seuMerged, subset = manualAnnotBin == "Tfh")
-seuMergedTfh
 deg_blimp1 <- FindMarkers(
-  object = subset(seuMerged, subset = stage == "Viremic"),
+  object = seuMerged,
   ident.1 = "CD4 PRDM1+ GC-Tfh",
   ident.2 = c("CD4 GC-Tfh #1", "CD4 GC-Tfh #2"),
   min.pct = 0.3,
@@ -301,111 +423,93 @@ deg_blimp1G <- deg_blimp1 %>%
   labs(x = "Average log2(FC)") +
   deLollipopTheme +
   theme(
-    plot.margin = margin(r = -80, l = -15, t = 0, b = 25)
+    plot.margin = margin(r = -80, l = -30, t = 0, b = 25)
   )
 
 
 ################################################################################
-# testing out other graphs
+# organoid infection
 ################################################################################
-bab_df <- read.csv("external_data/metadata_with_bab.csv")
+library(magick)
 
-propClusterByDonorDf <- data.frame(
-  donor = projUnhashedClean$donorClean2,
-  stage = projUnhashedClean$stage,
-  manualAnnot = projUnhashedClean$manualAnnot
-) %>%
-  dplyr::filter(stage != "HIV-") %>%
-  dplyr::mutate(
-    manualAnnot = factor(manualAnnot, levels = uniqClusters),
-    stage = factor(stage, levels = uniqStages)
-  ) %>%
-  dplyr::group_by(donor, manualAnnot, .drop = FALSE) %>%
-  dplyr::tally(name = "nCells") %>%
-  dplyr::group_by(donor) %>%
-  dplyr::mutate(
-    totalCells = sum(nCells),
-    percent = nCells / totalCells * 100,
-    percent = ifelse(is.nan(percent), 0, percent)) %>%
-  tidyr::pivot_wider(id_cols = "donor", names_from = "manualAnnot", values_from = "percent")
+# rep_flow <- image_read_svg("external_data/fig5_tonsil_organoid_representative_v1.svg", width = 419*3, height = 267*3)
+rep_flow_png <- image_read("external_data/fig5_tonsil_organoid_representative_v1.png")
 
+# Produces a ggplot2 plot with the svg image:
+rep_flow_gg <- image_ggplot(rep_flow_png)
 
-bab_df_clean <- bab_df %>%
-  dplyr::filter(!is.na(yu_gp120_bAUC)) %>%
-  dplyr::mutate(sf162_ic50 = ifelse(sf162_ic50 == ">1000", NA, as.numeric(sf162_ic50))) %>%
-  dplyr::mutate(mn3_ic50 = ifelse(mn3_ic50 == ">1000", NA, as.numeric(mn3_ic50))) %>%
-  dplyr::mutate(mlv_ic50 = ifelse(mlv_ic50 == ">1000", NA, as.numeric(mlv_ic50))) %>%
-  dplyr::filter(stage != "HIV neg") %>%
-  dplyr::mutate(stage = ifelse(stage == "Chronic", "Viremic", stage)) %>%
-  dplyr::mutate(viral_load = ifelse(viral_load == "UNDETECTABLE", NA, as.numeric(gsub(",","",viral_load)))) %>%
-  left_join(propClusterByDonorDf, by = c("short_id" = "donor")) %>%
-  dplyr::filter(!is.na(`CD4 Tcm/non-resident #1`))
+organoid_df <- read.csv("external_data/20250520_data.csv", check.names = FALSE)
 
-
-bab_df_clean %>% 
-  dplyr::group_by(stage) %>%
-  dplyr::summarize(across(`CD4 Tcm/non-resident #1`:`CD4 Trm NR4A1/NR4A2 hi`, ~ cor(.x, yu_gp120_bAUC))) %>%
-  tidyr::pivot_longer(cols = c(-1), names_to = "phenotype", values_to = "r_val") %>%
-  ggplot(aes(y = phenotype, x = r_val, fill = stage)) +
-  facet_wrap(~ stage, nrow = 1) +
-  geom_col() +
-  geom_vline(xintercept = 0) +
-  theme_classic() +
-  theme(
-    panel.grid.major.y = element_line(color = "#efefef90"),
-    legend.position = "blank") +
-  labs(title = "Linear correlation of cell proportions to binding AUC")
-
-
-bab_df_clean %>%
-  ggplot(aes(x = yu_gp120_bAUC, y = age, shape = stage, color = stage, fill = stage)) +
-  geom_point(size = 0.8, show.legend = FALSE) +
-  geom_smooth(method = lm, alpha = 0.3, se = TRUE, linewidth = 0.5) +
-  stat_cor(
-    aes(label = paste(after_stat(rr.label), after_stat(p.label), sep = "~`,`~")), p.digits = 3,
-    label.x = 0.01,
-    size = BASEFONTSIZE,
-    show.legend = FALSE
-  ) +
-  scale_color_manual(values = COLORS$stage) +
-  scale_fill_manual(values = COLORS$stage) +
-  coord_cartesian(clip = "off") +
+organoid_df <- organoid_df %>%
+  pivot_longer(cols = c(2:ncol(organoid_df)), names_to = "gate", values_to = "percent") %>%
+  mutate(as_tibble(str_match(gate, "(p24[+-])(blimp1(lo|mid|hi))"), .name_repair = ~ c("gate", "p24", "blimp1", "ignore"))) %>%
+  mutate(p24 = factor(p24, levels = c("p24-", "p24+"))) %>%
+  arrange(p24) %>%
+  mutate(gate = paste0(blimp1, " ", p24)) %>%
+  mutate(gate = gsub("\\+", "<sup>+</sup>", gate)) %>%
+  mutate(gate = gsub("\\-", "<sup>-</sup>", gate)) %>%
+  mutate(gate = gsub("blimp1(lo|mid|hi)", "Blimp1<sup>\\1</sup>", gate)) %>%
+  mutate(condition = factor(condition, levels = c("Neg", "NL4.3 MOI=0.01", "NL4.3 MOI=0.1", "SUMA MOI=0.01", "SUMA MOI=0.1"))) %>%
+  mutate(gate = factor(gate, levels = unique(gate)))
+  
+organoid_g <- organoid_df %>%
+  ggplot(aes(x = gate, y = percent)) +
+  geom_col(aes(color = condition), position = position_dodge(width = 0.85), width = 0.65, fill = "#ffffff") +
+  geom_point(aes(group = condition), position = position_dodge(width = 0.85), size = 0.5) +
+  geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE) +
+  geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE) +
   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
-  scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
+  guides(x = legendry::guide_axis_nested(
+    key = " ",
+    type = "bracket")) +
   theme_classic() +
+  scale_color_manual(values = c("#0c0c0c", "#bdd7e7", "#3182bd", "#fcae91", "#de2d26")) +
+  labs(color = "Condition", y = "Percent of non-naive\nCD8- CD3+ cells") +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE)) +
   theme(
-    text = element_text(size = BASEPTFONTSIZE, color = "#000000"), 
-    axis.title = element_text(size = BASEPTFONTSIZE, color = "#000000"), 
-    axis.line = element_line(linewidth = BASELINEWIDTHSIZE),
-    axis.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
-    legend.title = element_blank(),
-    legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
-    legend.key.height = unit(2, "pt"),
-    legend.key.width = unit(2, "pt"),
-    # plot.margin = margin(t = -20),
-    plot.title = element_text(color = "#ffffff00", size = BASEPTFONTSIZE + 2),
+    axis.line = element_blank(),
+    axis.text.y = element_markdown(size = BASEPTAXISFONTSIZE, color = "#000000"),
+    axis.title.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.text.x = element_markdown(size = BASEPTAXISFONTSIZE - 2, color = "#000000"),
     legend.position = "bottom",
-    # legend.box.margin = margin(t = -5, b = 0),
-    legend.direction = "horizontal") +
-  labs()
+    legend.key.size = unit(5, "pt"),
+    panel.grid.major.y = element_line(color = "#eeeeee", linetype = "dotted"),
+    legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    legend.title = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    axis.title.x = element_blank())
 
+organoid_df %>%
+  dplyr::group_by(condition, p24) %>%
+  dplyr::reframe(pp = percent / sum(percent) * 100) %>%
+  print(n = 200)
 
+################################################################################
+# final plots
+################################################################################
 layout <- c(
   area(1, 1, 8, 9), # prop
   area(9, 1, 10, 2), # prdm1
   area(9, 3, 10, 5), # depletion
   area(9, 6, 10, 7), # prdm1 dea
   area(9, 8, 10, 9), # prdm1 deg
-  area(11, 1, 13, 9) # spacer
+  area(11, 1, 13, 6), # representative plot
+  area(11, 6, 13, 9)
 )
 
-p <- patchwork::free(propClusterG, type = "panel", side = "tblr") +
-  prdmByDonorG +
-  depletionDfG +
-  patchwork::free(dea_blimp1G, type = "panel", side = "tbr") +
-  patchwork::free(deg_blimp1G, type = "panel", side = "tbr") +
-  wrap_elements(full = jpeg::readJPEG("figures/flow.jpg", native = TRUE)) + labs(title = "JaYMe iS InFecTinG CelLS") +
+p <- patchwork::free(propClusterG + theme(plot.margin = margin(l = 5, r = 25)), type = "panel", side = "lr") +
+  patchwork::free(prdmByDonorG + theme(plot.margin = margin(t = 15)), type = "panel", side = "lr") +
+  patchwork::free(depletionDfG + theme(plot.margin = margin(t = 15)), type = "panel", side = "lr") +
+  patchwork::free(dea_blimp1G +
+      theme(
+        plot.margin = margin(t = 15),
+        plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "tlbr") +
+  patchwork::free(deg_blimp1G, type = "panel", side = "tlbr") + theme(plot.margin = margin(t = 15)) +
+  wrap_elements(full = rep_flow_gg + theme(plot.margin = margin(l = -100, r = 0))) +
+  free(organoid_g + 
+      theme(
+        plot.margin = margin(l = 0),
+        plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "tlr") +
   plot_annotation(tag_levels = "A") +
   plot_layout(design = layout)
 
-saveFinalFigure(plot = p, fn = "fig3_v1", prefixDir = "figures/outs", devices = c("png"), gwidth = 8.5, gheight = 10)
+saveFinalFigure(plot = p, fn = "fig5_v2", prefixDir = "figures/outs", devices = c("png"), gwidth = 8.5, gheight = 10)

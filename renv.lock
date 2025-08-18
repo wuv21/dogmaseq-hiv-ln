@@ -108,6 +108,15 @@
         "rtracklayer"
       ]
     },
+    "BSgenome.Hsapiens.UCSC.hg38": {
+      "Package": "BSgenome.Hsapiens.UCSC.hg38",
+      "Version": "1.4.4",
+      "Source": "Bioconductor",
+      "Hash": "78973689ee32d5b3885ee96577c50ab7",
+      "Requirements": [
+        "BSgenome"
+      ]
+    },
     "Biobase": {
       "Package": "Biobase",
       "Version": "2.54.0",
@@ -866,6 +875,31 @@
         "uwot"
       ]
     },
+    "SeuratDisk": {
+      "Package": "SeuratDisk",
+      "Version": "0.0.0.9021",
+      "Source": "GitHub",
+      "Remotes": "satijalab/seurat-data",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "seurat-disk",
+      "RemoteUsername": "mojaveazure",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "877d4e18ab38c686f5db54f8cd290274ccdbe295",
+      "Hash": "d9eddfd211bbe8278b1805fe08ffd523",
+      "Requirements": [
+        "Matrix",
+        "R6",
+        "Seurat",
+        "SeuratObject",
+        "cli",
+        "crayon",
+        "hdf5r",
+        "rlang",
+        "stringi",
+        "withr"
+      ]
+    },
     "SeuratObject": {
       "Package": "SeuratObject",
       "Version": "5.0.1",
@@ -884,6 +918,30 @@
         "rlang",
         "sp",
         "spam"
+      ]
+    },
+    "SeuratWrappers": {
+      "Package": "SeuratWrappers",
+      "Version": "0.4.0",
+      "Source": "GitHub",
+      "Remotes": "welch-lab/liger, hms-dbmi/conos, immunogenomics/harmony,\n        immunogenomics/presto, satijalab/seurat-data,\n        velocyto-team/velocyto.R, SaskiaFreytag/schex@031320d,\n        cole-trapnell-lab/monocle3, mojaveazure/seurat-disk,\n        powellgenomicslab/Nebulosa, atakanekiz/CIPR-Package,\n        prabhakarlab/Banksy",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "seurat-wrappers",
+      "RemoteUsername": "satijalab",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "a1eb0d8b039ad6d5ef0ff1332fd8eb1c0c223553",
+      "Hash": "6b9c974c4ea70099ca972a9053c800a8",
+      "Requirements": [
+        "BiocManager",
+        "Matrix",
+        "Seurat",
+        "cowplot",
+        "ggplot2",
+        "igraph",
+        "remotes",
+        "rlang",
+        "rsvd"
       ]
     },
     "SparseM": {
@@ -1637,6 +1695,18 @@
       "Hash": "f7736a18de97dea803bde0a2daaafb27",
       "Requirements": []
     },
+    "fields": {
+      "Package": "fields",
+      "Version": "16.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "2900d13ae2ee1dcf9f9cce088103667c",
+      "Requirements": [
+        "maps",
+        "spam",
+        "viridisLite"
+      ]
+    },
     "filelock": {
       "Package": "filelock",
       "Version": "1.0.3",
@@ -1787,10 +1857,10 @@
     },
     "ggplot2": {
       "Package": "ggplot2",
-      "Version": "3.5.1",
+      "Version": "3.5.2",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "44c6a2f8202d5b7e878ea274b1092426",
+      "Hash": "7ad64861e028a777d7d67ff83231b548",
       "Requirements": [
         "MASS",
         "cli",
@@ -1892,6 +1962,19 @@
         "ggplot2"
       ]
     },
+    "ggtext": {
+      "Package": "ggtext",
+      "Version": "0.1.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "c5ba8f5056487403a299b91984be86ca",
+      "Requirements": [
+        "ggplot2",
+        "gridtext",
+        "rlang",
+        "scales"
+      ]
+    },
     "gh": {
       "Package": "gh",
       "Version": "1.4.0",
@@ -1963,6 +2046,23 @@
         "gtable"
       ]
     },
+    "gridtext": {
+      "Package": "gridtext",
+      "Version": "0.1.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "05e4f5fffb1eecfeaac9ea0b7f255fef",
+      "Requirements": [
+        "Rcpp",
+        "curl",
+        "jpeg",
+        "markdown",
+        "png",
+        "rlang",
+        "stringr",
+        "xml2"
+      ]
+    },
     "gtable": {
       "Package": "gtable",
       "Version": "0.3.4",
@@ -2006,6 +2106,17 @@
         "ggplot2",
         "rlang",
         "tibble"
+      ]
+    },
+    "hdf5r": {
+      "Package": "hdf5r",
+      "Version": "1.3.8",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "cb0f2296c8ce6508c5bcfbdae359b6ea",
+      "Requirements": [
+        "R6",
+        "bit64"
       ]
     },
     "here": {
@@ -2175,6 +2286,14 @@
       "Hash": "8954069286b4b2b0d023d1b288dce978",
       "Requirements": []
     },
+    "jpeg": {
+      "Package": "jpeg",
+      "Version": "0.1-10",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "031a0b683d001a7519202f0628fc0358",
+      "Requirements": []
+    },
     "jquerylib": {
       "Package": "jquerylib",
       "Version": "0.1.4",
@@ -2327,6 +2446,18 @@
         "zoo"
       ]
     },
+    "magick": {
+      "Package": "magick",
+      "Version": "2.8.7",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "e95f99b8d7c2ae43603d62fb9b669f07",
+      "Requirements": [
+        "Rcpp",
+        "curl",
+        "magrittr"
+      ]
+    },
     "magrittr": {
       "Package": "magrittr",
       "Version": "2.0.3",
@@ -2334,6 +2465,25 @@
       "Repository": "CRAN",
       "Hash": "7ce2733a9826b3aeb1775d56fd305472",
       "Requirements": []
+    },
+    "maps": {
+      "Package": "maps",
+      "Version": "3.4.2.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "354a8094c634031421eeb5103f2e1f80",
+      "Requirements": []
+    },
+    "markdown": {
+      "Package": "markdown",
+      "Version": "1.13",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "074efab766a9d6360865ad39512f2a7e",
+      "Requirements": [
+        "commonmark",
+        "xfun"
+      ]
     },
     "matrixStats": {
       "Package": "matrixStats",
@@ -2516,6 +2666,22 @@
         "MASS",
         "Matrix",
         "lme4"
+      ]
+    },
+    "pcaMethods": {
+      "Package": "pcaMethods",
+      "Version": "1.86.0",
+      "Source": "Bioconductor",
+      "git_url": "https://git.bioconductor.org/packages/pcaMethods",
+      "git_branch": "RELEASE_3_14",
+      "git_last_commit": "9419cfa",
+      "git_last_commit_date": "2021-10-26",
+      "Hash": "c7e4e7945ceb42ec531d60eb86563825",
+      "Requirements": [
+        "Biobase",
+        "BiocGenerics",
+        "MASS",
+        "Rcpp"
       ]
     },
     "pillar": {
@@ -3083,6 +3249,16 @@
       "Hash": "5564500e25cffad9e22244ced1379887",
       "Requirements": []
     },
+    "rsvd": {
+      "Package": "rsvd",
+      "Version": "1.0.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "b462187d887abc519894874486dbd6fd",
+      "Requirements": [
+        "Matrix"
+      ]
+    },
     "rtracklayer": {
       "Package": "rtracklayer",
       "Version": "1.54.0",
@@ -3280,10 +3456,10 @@
     },
     "sp": {
       "Package": "sp",
-      "Version": "2.1-2",
+      "Version": "2.2-0",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "40a9887191d33b2521a1d741f8c8aea2",
+      "Hash": "d9ff3b753db98bc50650314c8782abe6",
       "Requirements": [
         "lattice"
       ]
@@ -3634,6 +3810,30 @@
         "glue",
         "lifecycle",
         "rlang"
+      ]
+    },
+    "velocyto.R": {
+      "Package": "velocyto.R",
+      "Version": "0.6",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "velocyto.R",
+      "RemoteUsername": "velocyto-team",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "83e6ed92c2d9c9640122dcebf8ebbb5788165a21",
+      "Hash": "4d1666babab32c264258f24d27b526d5",
+      "Requirements": [
+        "MASS",
+        "Matrix",
+        "Rcpp",
+        "RcppArmadillo",
+        "abind",
+        "cluster",
+        "hdf5r",
+        "igraph",
+        "mgcv",
+        "pcaMethods"
       ]
     },
     "vipor": {

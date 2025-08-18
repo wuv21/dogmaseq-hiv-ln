@@ -12,6 +12,7 @@ library(Seurat)
 
 load("rdata/chronicSub2_deviations_2025-02-26-01-56.Rdata")
 
+set.seed(42)
 
 source("figures/defaultFigureSettings.R")
 source("scripts/graphs.R")
@@ -25,6 +26,7 @@ projUnhashedClean$manualAnnot <- trimws(projUnhashedClean$manualAnnot)
 uniqClusters <- unique(projUnhashedClean$manualAnnot)
 uniqStages <- c("Viremic", "ART")
 uniqInfection <- names(COLORS$hivStatus)
+
 
 ################################################################################
 # epigenetic analysis
@@ -95,11 +97,26 @@ tmp <- ComplexHeatmap::Heatmap(
     labels_gp = gpar(fontsize = 8)),
   show_column_dend = TRUE,
   row_km = 12,
+  top_annotation = ComplexHeatmap::HeatmapAnnotation(
+    `Phenotype` = anno_block(
+      gp = gpar(fill = "#ffffff", col = "#ffffff"),
+      height = unit(BASEPTFONTSIZE, "pt"),
+      labels = unique(str_split_fixed(colnames(chronic_markerTest_deviations_heatmap), "_", n = 2)[, 1]),
+      labels_gp = gpar(col = "#000000", fontsize = BASEPTFONTSIZE - 2),
+      show_name = FALSE),
+    simple_anno_size = unit(0.3, "cm")
+  ),
   bottom_annotation = ComplexHeatmap::HeatmapAnnotation(
-    `Phenotype` = str_split_fixed(colnames(chronic_markerTest_deviations_heatmap), "_", n = 2)[, 1],
+    `Phenotype` = anno_block(
+      gp = gpar(fill = "#ffffff", col = "#ffffff"),
+      height = unit(BASEPTFONTSIZE, "pt"),
+      labels = unique(str_split_fixed(colnames(chronic_markerTest_deviations_heatmap), "_", n = 2)[, 1]),
+      labels_gp = gpar(col = "#000000", fontsize = BASEPTFONTSIZE - 2),
+      show_name = TRUE),
+    # `Phenotype` = str_split_fixed(colnames(chronic_markerTest_deviations_heatmap), "_", n = 2)[, 1],
     `HIV` = str_split_fixed(colnames(chronic_markerTest_deviations_heatmap), "_", n = 2)[, 2],
     col = list(
-      `Phenotype` = c("Tcm/Th2" = "#a6611a", "Tem/Th1" = "#dfc27d", "Tfh" = "#80cdc1", "Treg" = "#018571"),
+      # `Phenotype` = c("Tcm/Th2" = "#a6611a", "Tem/Th1" = "#dfc27d", "Tfh" = "#80cdc1", "Treg" = "#018571"),
       `HIV` = COLORS$hivStatus
     ),
     annotation_legend_param = list(
@@ -124,13 +141,6 @@ tmp <- ComplexHeatmap::Heatmap(
       width = unit(6, "cm"))
   )
 )
-
-# savePlot(grid.grabExpr(draw(tmp,
-#   heatmap_legend_side = "bottom",
-#   annotation_legend_side = "bottom",
-#   merge_legend = TRUE)), fn = "chronic_deviations", gheight = 11, gwidth = 8, devices = "png")
-
-# rm(tmp)
 
 
 projChronicSub2$manualAnnotBinWithHivShortStatus <- paste0(projChronicSub2$manualAnnotBin, "_", projChronicSub2$hivPos)
@@ -216,8 +226,8 @@ ded_df <- dplyr::bind_rows(ded_list, .id = "celltype") %>%
   dplyr::mutate(significantFill = case_when(
     MeanDiff > 0 & FDR < 0.05 ~ "#ff0000ff",
     MeanDiff > 0 & FDR >= 0.05 ~ "#ff000000",
-    MeanDiff < 0 & FDR < 0.05 ~ "#0000ffff",
-    MeanDiff < 0 & FDR >= 0.05 ~ "#0000ff00",
+    MeanDiff < 0 & FDR < 0.05 ~ "#807c7cff",
+    MeanDiff < 0 & FDR >= 0.05 ~ "#807c7c00",
   )) %>%
   dplyr::ungroup() %>%
   dplyr::mutate(name = stringr::str_match(name, "(.*)_(\\d+)")[, 2]) %>%
@@ -231,9 +241,9 @@ ded_plots <- ded_df %>%
   facet_wrap(~ celltype, ncol = 1, scales = "free") +
   theme_classic() +
   labs(x = "chromVAR motif",
-    y = "<span style='font-size:7pt'>Mean difference in chromVAR devitions<br><span style='color:#ff0000'>Enriched in HIV+</span> | <span style='color:#0000ff'>Enriched in HIV-</span></span>") +
+    y = "<span style='font-size:7pt'>Mean difference in chromVAR deviations<br><span style='color:#ff0000'>Enriched in HIV+</span> | <span style='color:#807c7c'>Enriched in HIV-</span></span>") +
   scale_x_discrete(breaks = ded_df$xaxisName, labels = ded_df$name) +
-  scale_color_manual(values = c("Enriched in HIV+" = "red", "Enriched in HIV-" = "blue")) +
+  scale_color_manual(values = c("Enriched in HIV+" = "#ff0000", "Enriched in HIV-" = "#807c7c")) +
   scale_fill_identity() +
   coord_cartesian(clip = "off") +
   theme(
@@ -256,25 +266,11 @@ ded_plots <- ded_df %>%
 seuMerged$manualAnnotBinWithHivShortStatus <- paste0(seuMerged$manualAnnotBin, "_", seuMerged$hivPos)
 Idents(seuMerged) <- "manualAnnotBinWithHivShortStatus"
 
-seuMerged_chronic <- subset(seuMerged, subset = stage == "Viremic")
-tfh_dea <- FindMarkers(
-  seuMerged_chronic,
-  features = tsaCatalog[!tsaCatalog$isCtrl, "DNA_ID"],
-  ident.1 = "Tfh_HIV+",
-  ident.2 = "Tfh_HIV-",
-  min.pct = 0.3,
-  assay = "ADT")
+seuMergedChronic <- subset(seuMerged, subset = stage == "Viremic")
 
-tfh_deg <- FindMarkers(
-  seuMerged_chronic,
-  ident.1 = "Tfh_HIV+",
-  ident.2 = "Tfh_HIV-",
-  assay = "RNA",
-  min.pct = 0.3)
-
-Idents(seuMerged_chronic) <- "hivPos"
+Idents(seuMergedChronic) <- "hivPos"
 all_dea <- FindMarkers(
-  seuMerged_chronic,
+  seuMergedChronic,
   features = tsaCatalog[!tsaCatalog$isCtrl, "DNA_ID"],
   ident.1 = "HIV+",
   ident.2 = "HIV-",
@@ -283,7 +279,7 @@ all_dea <- FindMarkers(
 )
 
 all_deg <- FindMarkers(
-  seuMerged_chronic,
+  seuMergedChronic,
   ident.1 = "HIV+",
   ident.2 = "HIV-",
   min.pct = 0.3,
@@ -292,8 +288,8 @@ all_deg <- FindMarkers(
 
 deLollipop_theme <- list(
   theme_classic(),
-  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "blue")),
-  labs(x = "<span style='font-size:7pt'>Avg log2(FC)<br><span style='color:#0000ff'>&uarr; in HIV-</span> | <span style='color:#ff0000'>&uarr; in HIV+</span></span>"),
+  scale_color_manual(values = c("TRUE" = "#ff0000", "FALSE" = "#807c7c")),
+  labs(x = "<span style='font-size:7pt'>Avg log2(FC)<br><span style='color:#807c7c'>&uarr; in HIV-</span> | <span style='color:#ff0000'>&uarr; in HIV+</span></span>"),
   theme(
     axis.line = element_line(linewidth = BASELINEWIDTHSIZE),
     legend.position = "blank",
@@ -308,7 +304,8 @@ all_dea_plot <- all_dea %>%
   as.data.frame() %>%
   dplyr::mutate(DNA_ID = rownames(.)) %>%
   left_join(tsaCatalog[, c("DNA_ID", "cleanName")]) %>%
-  dplyr::filter(p_val_adj < 0.05) %>%
+  dplyr::mutate(p_val_adj2 = p.adjust(p_val, method = "BH")) %>%
+  dplyr::filter(p_val_adj2 < 0.05) %>%
   dplyr::mutate(direction = avg_log2FC > 0) %>%
   dplyr::group_by(direction) %>%
   dplyr::slice_max(abs(avg_log2FC), n = 10) %>%
@@ -326,7 +323,8 @@ all_deg_plot <- all_deg %>%
   as.data.frame() %>%
   dplyr::mutate(gene = rownames(.)) %>%
   dplyr::filter(gene != "HIV") %>%
-  dplyr::filter(p_val_adj < 0.05) %>%
+  dplyr::mutate(p_val_adj2 = p.adjust(p_val, method = "BH")) %>%
+  dplyr::filter(p_val_adj2 < 0.05) %>%
   dplyr::mutate(direction = avg_log2FC > 0) %>%
   dplyr::group_by(direction) %>%
   dplyr::slice_max(abs(avg_log2FC), n = 10) %>%
@@ -341,12 +339,96 @@ all_deg_plot <- all_deg %>%
   labs(y = "Gene", title = "All cells\nRNA")
 
 
+################################################################################
+# cell cycle analysis
+################################################################################
+library(tricycle)
+# sceChronic <- as.SingleCellExperiment(seuMergedChronic, assay = "RNA")
+
+seuMergedChronic <- SeuratWrappers::Runtricycle(
+  object = seuMergedChronic,
+  slot = "data",
+  reduction.name = "tricycleEmbedding", 
+  reduction.key = "tricycleEmbedding_",
+  gname = NULL,
+  gname.type = "SYMBOL",
+  species = "human")
+
+s.genes <- cc.genes$s.genes
+g2m.genes <- cc.genes$g2m.genes
+
+seuMergedChronic <- CellCycleScoring(seuMergedChronic,
+  s.features = s.genes,
+  g2m.features = g2m.genes,
+  set.ident = FALSE)
+
+# seuMergedChronic$tricyclePosition <- sceChronic_triOut_new$tricyclePosition
+
+ccpos_plot <- tricycle::plot_ccposition_den(
+  seuMergedChronic$tricyclePosition, seuMergedChronic$hivStatus, 'HIV status', bw = 30)
+
+ccpos_plot_final <- ccpos_plot +
+  theme_classic() +
+  geom_line(aes(x = 0, y = 0, linetype = "All cells", color = "All cells"),
+    show.legend = TRUE, inherit.aes = FALSE) +
+  guides(
+  color = guide_legend(override.aes = list(linewidth = 2))) +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000", hjust = 0),
+    legend.margin = margin(t = -10),
+    legend.spacing.x = unit(BASEPTFONTSIZE, "pt"),
+    axis.line = element_line(linewidth = BASELINEWIDTHSIZE, color = "#000000"),
+    plot.title = element_blank(),
+    axis.text.x = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.text.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.title.x = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    axis.title.y = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    legend.title = element_blank()) +
+  scale_linetype_manual(values = c("dashed")) +
+  scale_color_manual(labels = c("HIV DNA+ RNA-", "HIV DNA+/- RNA+", "HIV-", "All cells"), values = c(COLORS$hivStatus, "#ffffff"))
+
+
+ccpos_tests <- c(
+  ks.test(
+    x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV DNA+/- RNA+"],
+    y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV DNA+ RNA-"])$p,
+  
+  
+  ks.test(
+    x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV DNA+/- RNA+"],
+    y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV-"])$p,
+  
+  ks.test(
+    x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV DNA+ RNA-"],
+    y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV-"])$p)
+
+
+################################################################################
+# supplemental figure
+################################################################################
+Idents(seuMergedChronic) <- "manualAnnotBinWithHivShortStatus"
+tfh_dea <- FindMarkers(
+  seuMergedChronic,
+  features = tsaCatalog[!tsaCatalog$isCtrl, "DNA_ID"],
+  ident.1 = "Tfh_HIV+",
+  ident.2 = "Tfh_HIV-",
+  min.pct = 0.3,
+  assay = "ADT")
+
+tfh_deg <- FindMarkers(
+  seuMergedChronic,
+  ident.1 = "Tfh_HIV+",
+  ident.2 = "Tfh_HIV-",
+  assay = "RNA",
+  min.pct = 0.3)
+
 tfh_dea_plot <- tfh_dea %>%
   as.data.frame() %>%
   dplyr::mutate(DNA_ID = rownames(.)) %>%
   left_join(tsaCatalog[, c("DNA_ID", "cleanName")]) %>%
-  dplyr::filter(p_val_adj < 0.05) %>%
-  dplyr::mutate(direction = avg_log2FC > 0) %>%
+  dplyr::mutate(p_val_adj2 = p.adjust(p_val, method = "BH")) %>%
+  dplyr::filter(p_val_adj2 < 0.05) %>%  dplyr::mutate(direction = avg_log2FC > 0) %>%
   dplyr::group_by(direction) %>%
   dplyr::slice_max(abs(avg_log2FC), n = 10) %>%
   dplyr::ungroup() %>%
@@ -363,7 +445,8 @@ tfh_deg_plot <- tfh_deg %>%
   as.data.frame() %>%
   dplyr::mutate(gene = rownames(.)) %>%
   dplyr::filter(gene != "HIV") %>%
-  dplyr::filter(p_val_adj < 0.05) %>%
+  dplyr::mutate(p_val_adj2 = p.adjust(p_val, method = "BH")) %>%
+  dplyr::filter(p_val_adj2 < 0.05) %>%
   dplyr::mutate(direction = avg_log2FC > 0) %>%
   dplyr::group_by(direction) %>%
   dplyr::slice_max(abs(avg_log2FC), n = 10) %>%
@@ -378,6 +461,51 @@ tfh_deg_plot <- tfh_deg %>%
   labs(y = "Gene", title = "Tfh cells\nRNA")
 
 
+
+ignoredBins <- c("Other", "Naive/early memory")
+
+hivNegColors <- c(
+  "#c6dbef",
+  "#9ecae1",
+  "#00ff00",
+  "#4292c6",
+  "#2171b5",
+  "#084594")
+
+hivPosColors <- c(
+  "#fcbba1",
+  "#fc9272",
+  "#9D00FF",
+  "#ef3b2c",
+  "#cb181d",
+  "#99000d")
+
+altColors <- c(rbind(hivNegColors, hivPosColors))
+
+ccpos_plot_byBin <- tricycle::plot_ccposition_den(
+  seuMergedChronic$tricyclePosition[seuMergedChronic$manualAnnotBin %ni% ignoredBins],
+  seuMergedChronic$manualAnnotBinWithHivShortStatus[seuMergedChronic$manualAnnotBin %ni% ignoredBins],
+  palette.v = altColors,
+  'HIV status',
+  bw = 10)
+
+ccpos_plot_byBin_final <- ccpos_plot_byBin +
+  theme_classic() +
+  guides(color = guide_legend(override.aes = list(linewidth = 2), nrow = 2)) +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", hjust = 0),
+    legend.key.spacing.x = unit(BASEPTFONTSIZE - 2, "pt"),
+    axis.line = element_line(linewidth = BASELINEWIDTHSIZE, color = "#000000"),
+    plot.title = element_blank(),
+    axis.text.x = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.text.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.title.x = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    axis.title.y = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    legend.title = element_blank())
+
+
+
 ################################################################################
 # plot compilation
 ################################################################################
@@ -386,10 +514,10 @@ layout <- c(
   area(1, 9, 4, 12), # ded plots
   area(5, 9, 6, 10), # deg/dea plots
   area(5, 11, 6, 12), # deg/dea plots
-  area(7, 9, 8, 10), # deg/dea plots
-  area(7, 11, 8, 12) # deg/dea plots
+  area(7, 9, 8, 12) # tricycle
 )
 
+set.seed(42)
 p <- wrap_elements(
   grid.grabExpr(draw(tmp,
     heatmap_legend_side = "bottom",
@@ -405,15 +533,52 @@ p <- wrap_elements(
     plot.tag = element_text(margin = margin(l = -65, t = 10)),
     plot.margin = margin(l = 15, r = 20)), type = "space", side = "lr") +
   
-  free(tfh_deg_plot + theme(
+  
+  free(ccpos_plot_final + theme(
     plot.tag = element_text(margin = margin(l = -65, t = 10)),
-    plot.margin = margin(l = 10, r = 35)), type = "space", side = "lr") +
-  free(tfh_dea_plot + theme(
-    plot.tag = element_text(margin = margin(l = -65, t = 10)),
-    plot.margin = margin(l = 15, r = 20)), type = "space", side = "lr") +
+    plot.margin = margin(l = 10, r = 35, b = -10)), type = "space", side = "blr") +
+  
   plot_annotation(tag_levels = "A") +
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig4_v1", prefixDir = "figures/outs", devices = c("png"), gwidth = 8.5, gheight = 9)
+saveFinalFigure(
+  plot = p,
+  fn = "fig3_v2",
+  prefixDir = "figures/outs",
+  devices = c("png"),
+  gwidth = 8.5,
+  gheight = 9)
+
+
+sup_layout <- c(
+  area(1, 1, 2, 2), # deg/dea plots
+  area(1, 3, 2, 4), # deg/dea plots
+  area(3, 1, 5, 4) # tricycle
+)
+
+sup_p <-
+  free(tfh_deg_plot + theme(
+    plot.tag = element_text(margin = margin(l = -35, t = 10)),
+    plot.margin = margin(l = 30, r = 35)), type = "space", side = "l") +
+  
+  free(tfh_dea_plot + theme(
+    plot.tag = element_text(margin = margin(l = -45, t = 10)),
+    plot.margin = margin(l = 15, r = 20)), type = "space", side = "l") +
+  
+  free(ccpos_plot_byBin_final + theme(
+    plot.tag = element_text(margin = margin(l = -35, t = 10)),
+    plot.margin = margin(l = 35, r = 35)), type = "space", side = "lr") +
+  
+  plot_annotation(tag_levels = "A") +
+  plot_layout(design = sup_layout) &
+  plotTagTheme
+
+saveFinalFigure(
+  plot = sup_p,
+  fn = "supfig4_v1",
+  prefixDir = "figures/outs",
+  devices = c("png"),
+  gwidth = 5,
+  gheight = 6)
 
