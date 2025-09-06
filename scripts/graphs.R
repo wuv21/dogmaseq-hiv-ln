@@ -1664,6 +1664,15 @@ plotUpsetCBC <- function(
   savePlot(plot = p, fn = fn, devices = devices, gheight = gheight, gwidth = gwidth)
 }
 
+breaksForMinMax <- function(x, expansion = 1.05) {
+  maxNum <- max(x) %/% 10 * 10
+  if (maxNum == 0) {
+    maxNum <- floor(max(x))
+  }
+  
+  return(c(0, maxNum))
+}
+
 plotUpsetHivStats <- function(
   rnaCbc,
   dnaCbc,
@@ -1718,7 +1727,7 @@ plotUpsetHivStats <- function(
   barPlot <- df %>%
     ggplot(aes(x = rowID, y = n)) +
     geom_text(aes(label = n), size = barTextSize, vjust = -0.3) +
-    scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
+    scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)), breaks = breaksForMinMax) +
     scale_x_discrete(drop = FALSE) +
     coord_cartesian(clip = "off") +
     labs(y = "# of cells") +
@@ -1731,7 +1740,7 @@ plotUpsetHivStats <- function(
       axis.ticks.x = element_blank(),
       axis.title.x = element_blank(),
       strip.background = element_blank(),
-      strip.text = element_text(size = BASEPTFONTSIZE))
+      strip.text = element_text(size = BASEPTFONTSIZE, hjust = 0.5))
   
   if (!is.null(groupingVector)) {
     barPlot <- barPlot + 

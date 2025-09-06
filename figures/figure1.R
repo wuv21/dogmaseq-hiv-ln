@@ -44,6 +44,10 @@ source("scripts/colorPalettes.R")
 
 
 projUnhashedClean$stage <- ifelse(projUnhashedClean$stage == "Chronic", "Viremic", projUnhashedClean$stage)
+# fix naming for CD4 Trm #1
+projUnhashedClean$manualAnnot <- ifelse(projUnhashedClean$manualAnnot == "CD4 Trm #1", "CD4 Trm", projUnhashedClean$manualAnnot)
+seuMerged$manualAnnot <- ifelse(seuMerged$manualAnnot == "CD4 Trm #1", "CD4 Trm", seuMerged$manualAnnot)
+
 
 umapDf <- getEmbedding(projUnhashedClean, embedding = "Harmony_UMAP_Combined_v2_05Dist_50Neigh")
 
@@ -313,7 +317,7 @@ p <- wrap_elements(full = figABC, ignore_tag = TRUE) +
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig1_v2", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 7, gheight = 7)
+saveFinalFigure(plot = p, fn = "fig1_v2", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 7, gheight = 7, addTimestamp = TRUE)
 
 
 supLayout <- c(
@@ -327,4 +331,4 @@ supP <- free(rnaBasePlot, type = "panel", side = "lr") +
   plot_layout(design = supLayout) &
   plotTagTheme
 
-saveFinalFigure(plot = supP, fn = "supfig2_v2", prefixDir = "figures/outs", devices = c("png"), gwidth = 8, gheight = 10)
+saveFinalFigure(plot = supP, fn = "supfig2_v2", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 8, gheight = 10, addTimestamp = TRUE)

@@ -32,6 +32,9 @@ source("scripts/colorPalettes.R")
 ################################################################################
 projUnhashedClean$stage <- ifelse(projUnhashedClean$stage == "Chronic", "Viremic", projUnhashedClean$stage)
 
+# fix naming for CD4 Trm #1
+projUnhashedClean$manualAnnot <- ifelse(projUnhashedClean$manualAnnot == "CD4 Trm #1", "CD4 Trm", projUnhashedClean$manualAnnot)
+
 umapDf <- getEmbedding(projUnhashedClean, embedding = "Harmony_UMAP_Combined_v2_05Dist_50Neigh")
 
 stopifnot(sum(rownames(umapDf) == projUnhashedClean$cellNames) == length(projUnhashedClean$cellNames))
@@ -132,7 +135,7 @@ names(statGroupingDict) <- hivStats$cellName
 topTheme <- list(
   scale_fill_manual(values = rep("#000000", 15)),
   theme(
-    strip.text = element_text(size = BASEPTFONTSIZE, color = "#000000", margin = margin(b = 15)),
+    strip.text = element_text(size = BASEPTFONTSIZE, color = "#000000", hjust = 0.5),
     axis.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
     axis.title.y = element_text(size = BASEPTFONTSIZE, color = "#000000"),
     axis.line = element_line(linewidth = BASELINEWIDTHSIZE),
@@ -182,10 +185,11 @@ supFigUpsetVir[[2]] <- supFigUpsetVir[[2]] + bottomTheme
 figCData <- data.frame(
   cluster = projUnhashedClean$manualAnnot,
   stage = projUnhashedClean$stage,
-  haystackOut = projUnhashedClean$haystackOut
+  haystackOut = projUnhashedClean$hivStatus
 ) %>%
   dplyr::mutate(cluster = factor(cluster, levels = unique(cluster))) %>%
-  dplyr::filter(haystackOut) %>%
+  dplyr::filter(haystackOut == "HIV DNA+ RNA-") %>%
+  # dplyr::filter(haystackOut) %>%
   dplyr::mutate(stage = factor(stage, levels = c("Viremic", "ART"))) %>%
   dplyr::group_by(stage, cluster, .drop = FALSE) %>%
   dplyr::tally(name = "nCells") %>%
@@ -224,18 +228,15 @@ figDnaLol <- ggplot(figCData, aes(x = percentStage, y = cluster, color = stage))
   coord_cartesian(clip = "off") +
   scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.2))) +
   scale_color_manual(values = COLORS$stage) +
-  labs(x = "% of HIV DNA+ cells per stage")
-
-# savePlot(figC, fn = "croi_hivDnaLollipopByStage", gheight = 6, gwidth = 8, devices = "png")
-
+  labs(x = "% of HIV DNA+ RNA- cells per stage")
 
 # fig d RNA lollipop
 figDData <- data.frame(
   cluster = projUnhashedClean$manualAnnot,
   stage = projUnhashedClean$stage,
-  haystackOut = projUnhashedClean$hivRNA
+  haystackOut = projUnhashedClean$hivStatus
 ) %>%
-  dplyr::filter(haystackOut) %>%
+  dplyr::filter(haystackOut == "HIV DNA+/- RNA+") %>%
   dplyr::mutate(stage = factor(stage, levels = c("Viremic", "ART"))) %>%
   dplyr::group_by(stage, cluster) %>%
   dplyr::tally(name = "nCells") %>%
@@ -255,115 +256,8 @@ figRnaLol <- ggplot(figDData, aes(x = percentStage, y = cluster, color = stage))
   coord_cartesian(clip = "off") +
   scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.2))) +
   scale_color_manual(values = COLORS$stage) +
-  labs(x = "% of HIV RNA+ cells per stage")
+  labs(x = "% of HIV DNA+/- RNA+ cells per stage")
 
-# savePlot(figD, fn = "croi_hivRnaLollipopByStage", gheight = 6, gwidth = 8, devices = c("png"))
-
-
-################################################################################
-# fig E pairwise distance
-################################################################################
-# set.seed(42)
-# 
-# distAverage <- function(mat) {
-#   nOnes <- matrix(data = 1, nrow = nrow(mat))
-# 
-#   avgDist <- 1 / (nrow(mat) * (nrow(mat) - 1)) * t(nOnes) %*% mat %*% nOnes
-#   return(as.numeric(avgDist))
-# }
-# 
-# distAverageBoot <- function(sam, full) {
-#   distMat <- fields::rdist(full[sam, ])
-# 
-#   return(distAverage(distMat))
-# }
-# 
-# 
-# 
-# # for donors with more than 10 infected cells, what was the average distance
-# donorCounts <- data.frame(
-#   cbc = projUnhashedClean$cellNames,
-#   donor = projUnhashedClean$donorClean2,
-#   hivPos = projUnhashedClean$hivPos == "HIV+",
-#   stage = projUnhashedClean$stage
-# ) %>%
-#   group_by(donor, hivPos) %>%
-#   tally(name = "nCells") %>%
-#   filter((hivPos & nCells >= 10) | (grepl("U", donor) & !hivPos)) %>%
-#   as.data.frame(.)
-# 
-# averageHivPos <- round(mean(donorCounts[donorCounts$hivPos, "nCells"]))
-# 
-# 
-# distResults <- lapply(1:nrow(donorCounts), function(i) {
-#   donor <- as.character(donorCounts[i, "donor"])
-#   nPosCells <- as.integer(donorCounts[i, "nCells"])
-#   print(donor)
-# 
-#   # uninfected, use the average hiv pos for subsetting
-#   if (grepl("U", donor)) {
-#     donorNegCells <- projUnhashedClean$cellNames[projUnhashedClean$donorClean2 == donor & projUnhashedClean$hivPos == "HIV-"]
-#     avgPosDist <- NA
-#     donorPosCells <- c(1:averageHivPos)
-# 
-#   } else {
-#     donorPosCells <- projUnhashedClean$cellNames[projUnhashedClean$donorClean2 == donor & projUnhashedClean$hivPos == "HIV+"]
-#     donorNegCells <- projUnhashedClean$cellNames[projUnhashedClean$donorClean2 == donor & projUnhashedClean$hivPos == "HIV-"]
-# 
-#     posDist <- fields::rdist(projUnhashedClean@reducedDims$HarmonyLsiCleanForSeurat$matRD[donorPosCells, ])
-#     avgPosDist <- distAverage(posDist)
-#   }
-# 
-# 
-#   negDistDf <- data.frame(num = 1:100) %>%
-#     group_by(num) %>%
-#     dplyr::mutate(means = distAverageBoot(sample(donorNegCells, length(donorPosCells), replace = TRUE),
-#       projUnhashedClean@reducedDims$HarmonyLsiCleanForSeurat$matRD[donorNegCells, ]))
-# 
-#   df <- data.frame(
-#     donor = donor,
-#     nCells = nPosCells,
-#     avgPosDist = avgPosDist,
-#     avgNegDist = mean(negDistDf$means)
-#   )
-# 
-#   return(df)
-# })
-# 
-# distResultsCompiled <- bind_rows(distResults) %>%
-#   dplyr::mutate(stage = case_when(
-#     grepl("A", donor) ~ "ART",
-#     grepl("C", donor) ~ "Viremic",
-#     grepl("U", donor) ~ "HIV-"
-#   )) %>%
-#   tidyr::pivot_longer(cols = c("avgPosDist", "avgNegDist"), names_to = "distType", values_to = "dist") %>%
-#   dplyr::mutate(distType = ifelse(distType == "avgPosDist", "HIV+", "HIV-")) %>%
-#   dplyr::mutate(stage = factor(stage, levels = c("HIV-", "Viremic", "ART"))) %>%
-#   dplyr::filter(!is.na(dist)) %>%
-#   dplyr::arrange(distType, donor)
-# 
-# distResultsCompiledStats <- ggpubr::compare_means(dist ~ distType, distResultsCompiled, group.by = "stage", paired = TRUE)
-# distResultsCompiledStats$p.sym <- pValSymnum(distResultsCompiledStats$p.adj)
-# 
-# figDist <- ggplot(distResultsCompiled, aes(x = distType, y = dist)) +
-#   geom_boxplot(outliers = FALSE, fill = NA, aes(color = stage), show.legend = FALSE) +
-#   geom_line(aes(group = donor), color = "#1f1f1f85") +
-#   geom_point(alpha = 0.8) +
-#   theme_classic() +
-#   labs(x = "Cell infection status", y = "Mean Euclidean distance") +
-#   facet_grid(~ stage, scales = "free", space = "free") +
-#   ggpubr::stat_pvalue_manual(
-#     distResultsCompiledStats, label = "{p.sym}", y.position = 2.2, size = BASEFONTSIZE * 0.85, vjust = 0) +
-#   scale_color_manual(values = COLORS$stage) +
-#   scale_y_continuous(limits = c(NA, NA), expand = expansion(mult = c(0.05, 0.2))) +
-#   theme(
-#     # plot.margin = margin(b = 40),
-#     axis.line = element_line(linewidth = BASELINEWIDTHSIZE),
-#     strip.background = element_rect(fill = "#ffffff00", color = "#ffffff00"),
-#     strip.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
-#     axis.title = element_text(size = BASEPTFONTSIZE, color = "#000000"),
-#     axis.text = element_text(size = BASEPTFONTSIZE, color = "#000000")
-#   )
 
 ################################################################################
 # infection of tfh by stage
@@ -431,6 +325,11 @@ figTfh <- ggplot(tmp, aes(x = xlbl, y = propOfHIVPos * 100)) +
     x = "Cell phenotype",
     y = "% of donor's HIV+ cells")
 
+
+library(magick)
+flow_sort_strat_png <- image_read("external_data/tfh_flow_same.png")
+flow_sort_strat_gg <- image_ggplot(flow_sort_strat_png)
+
 ################################################################################
 # tfh correlation
 ################################################################################
@@ -455,6 +354,45 @@ dogmaCondensed <- data.frame(
     `Tfh` = sum(grepl("Tfh", manualAnnot))
   )
 
+figTfhCorr <- dogmaCondensed %>%
+  left_join(ipdaFlow, by = c("donor" = "Sample")) %>%
+  mutate(percentHIVPos = (totalCells - `HIV-`) / totalCells * 100) %>%
+  mutate(percentHIVTfhPos = `HIV+ in Tfh` / (totalCells - `HIV-`) * 100) %>%
+  mutate(percentTfh = `Tfh` / totalCells * 100) %>%
+  ggplot(aes(x = `GC-TFH (% of Memory CD4 T cells)`, y = `percentTfh`, shape = stage, color = stage, fill = stage)) +
+  geom_point(size = 0.8, show.legend = FALSE) +
+  geom_smooth(method = lm, alpha = 0.3, se = TRUE, linewidth = 0.5) +
+  stat_cor(
+    aes(label = paste(after_stat(rr.label), after_stat(p.label), sep = "~`,`~")), p.digits = 3,
+    label.x = 1,
+    size = BASEFONTSIZE * 0.85,
+    show.legend = FALSE
+  ) +
+  scale_color_manual(values = COLORS$stage) +
+  scale_fill_manual(values = COLORS$stage) +
+  coord_cartesian(clip = "off") +
+  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
+  scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
+  theme_classic() +
+  theme(
+    text = element_text(size = BASEPTFONTSIZE, color = "#000000"), 
+    axis.title = element_text(size = BASEPTFONTSIZE, color = "#000000"), 
+    axis.line = element_line(linewidth = BASELINEWIDTHSIZE),
+    axis.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    legend.title = element_blank(),
+    legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    legend.key.height = unit(2, "pt"),
+    legend.key.width = unit(10, "pt"),
+    plot.margin = margin(t = -20),
+    plot.title = element_text(color = "#ffffff00", size = BASEPTFONTSIZE + 2),
+    legend.position = "bottom",
+    legend.box.margin = margin(t = -5, b = 0),
+    legend.direction = "horizontal") +
+  labs(
+    title = "",
+    shape = "Stage",
+    x = "GC-TFH (% of Memory CD4 T cells) from flow",
+    y = "% Tfh from scDOGMAseq")
 
 
 ################################################################################
@@ -533,48 +471,6 @@ covgPlot <- ggplot(hxb2Df, aes(x = bp, color = stage, y = density)) +
 
 fullCovgPlot <- covgPlot / geneAnnot + plot_layout(heights = c(3.5, 1))
 
-################################################################################
-# tfh corr
-################################################################################
-figTfhCorr <- dogmaCondensed %>%
-  left_join(ipdaFlow, by = c("donor" = "Sample")) %>%
-  mutate(percentHIVPos = (totalCells - `HIV-`) / totalCells * 100) %>%
-  mutate(percentHIVTfhPos = `HIV+ in Tfh` / (totalCells - `HIV-`) * 100) %>%
-  mutate(percentTfh = `Tfh` / totalCells * 100) %>%
-  ggplot(aes(x = `GC-TFH (% of Memory CD4 T cells)`, y = `percentTfh`, shape = stage, color = stage, fill = stage)) +
-  geom_point(size = 0.8, show.legend = FALSE) +
-  geom_smooth(method = lm, alpha = 0.3, se = TRUE, linewidth = 0.5) +
-  stat_cor(
-    aes(label = paste(after_stat(rr.label), after_stat(p.label), sep = "~`,`~")), p.digits = 3,
-    label.x = 1,
-    size = BASEFONTSIZE * 0.85,
-    show.legend = FALSE
-  ) +
-  scale_color_manual(values = COLORS$stage) +
-  scale_fill_manual(values = COLORS$stage) +
-  coord_cartesian(clip = "off") +
-  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
-  scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
-  theme_classic() +
-  theme(
-    text = element_text(size = BASEPTFONTSIZE, color = "#000000"), 
-    axis.title = element_text(size = BASEPTFONTSIZE, color = "#000000"), 
-    axis.line = element_line(linewidth = BASELINEWIDTHSIZE),
-    axis.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
-    legend.title = element_blank(),
-    legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
-    legend.key.height = unit(2, "pt"),
-    legend.key.width = unit(2, "pt"),
-    plot.margin = margin(t = -20),
-    plot.title = element_text(color = "#ffffff00", size = BASEPTFONTSIZE + 2),
-    legend.position = "bottom",
-    legend.box.margin = margin(t = -5, b = 0),
-    legend.direction = "horizontal") +
-  labs(
-    title = "",
-    shape = "Stage",
-    x = "GC-TFH (% of Memory CD4 T cells) from flow",
-    y = "% Tfh from scDOGMAseq")
 
 ################################################################################
 # entropy calcs
@@ -645,12 +541,45 @@ pRGS <- ggplot(props2, aes(x = xaxislbl, y = rgs2)) +
 ################################################################################
 # scope data from TEACH-B
 ################################################################################
-teachDf <- read.csv("external_data/teach_b_scope.csv", check.names = FALSE)
-teachDf <- teachDf %>%
+teachDf_base <- read.csv("external_data/teach_b_scope.csv", check.names = FALSE)
+teachDf <- teachDf_base %>%
   dplyr::select(ID, timepoint, `% vDNA+ in BCF`, `% vDNA+ EF`) %>%
   tidyr::pivot_longer(cols = c(`% vDNA+ in BCF`, `% vDNA+ EF`), names_to = "param", values_to = "percent_vDNA") %>%
   dplyr::mutate(param = ifelse(grepl("BCF", param), "B cell follicle", "Extra follicular")) %>%
   dplyr::mutate(param = factor(param, levels = c("Extra follicular", "B cell follicle")))
+
+teachDf2 <- teachDf_base %>%
+  dplyr::select(ID, timepoint, `vDNA+/10^5 cells`) %>%
+  dplyr::rename(dna = `vDNA+/10^5 cells`) %>%
+  dplyr::mutate(timepoint = ifelse(timepoint == 0, "0", "24")) %>%
+  dplyr::mutate(timepoint = factor(timepoint, levels = c("0", "24")))
+
+
+figTeachDnaStats <- ggpubr::compare_means(
+  dna ~ timepoint,
+  p.adjust.method = "bonferroni",
+  paired = TRUE,
+  method = "wilcox.test",
+  data = teachDf2)
+figTeachDnaStats$p.sym <- pValSymnum(figTeachDnaStats$p.adj)
+
+
+figTeachDna <- ggplot(teachDf2, aes(x = timepoint, y = dna)) +
+  geom_point() +
+  geom_line(aes(group = ID)) +
+  theme_classic() +
+  ggpubr::stat_pvalue_manual(figTeachDnaStats, label = "{p.sym}",
+    y.position = 6.5, bracket.shorten = 0.4, size = BASEFONTSIZE * 0.85, vjust = 0) +
+  labs(
+    y = "vDNA+/10<sup>5</sup> cells",
+    x = "Timepoint (weeks)") +
+  theme(
+    axis.title.y = element_markdown(color = "#000000", size = BASEPTFONTSIZE),
+    axis.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    text = element_text(size = BASEPTFONTSIZE, color = "#000000"), 
+    axis.title = element_text(size = BASEPTFONTSIZE, color = "#000000"), 
+    axis.line = element_line(linewidth = BASELINEWIDTHSIZE),
+    plot.title = element_text(color = "#ffffff00", size = BASEPTFONTSIZE + 2))
 
 
 figTeachCompStats <- ggpubr::compare_means(
@@ -659,7 +588,6 @@ figTeachCompStats <- ggpubr::compare_means(
   method = "wilcox.test",
   data = teachDf)
 figTeachCompStats$p.sym <- pValSymnum(figTeachCompStats$p.adj)
-
 
 figTeach <- ggplot(teachDf) +
   geom_boxplot(aes(x = param, y = percent_vDNA), outliers = FALSE, fill = NA, width = 0.5) +
@@ -687,6 +615,9 @@ figTeach <- ggplot(teachDf) +
     legend.position = "bottom",
     legend.box.margin = margin(t = -5, b = 0),
     legend.direction = "horizontal")
+
+tissue_tiff <- image_read("external_data/New Figure - TEACH_110_BL_CD4_vDNA_CD20_01(3).tif")
+tissue_gg <- image_ggplot(tissue_tiff)
 
 
 rightSidePanel <- pRGS / 
@@ -727,21 +658,27 @@ p <- wrap_elements(full = figA) +
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig2_v1", prefixDir = "figures/outs", devices = c("png"), gwidth = 8.5, gheight = 10)
+saveFinalFigure(plot = p, fn = "fig2_v1", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 8.5, gheight = 10, addTimestamp = TRUE)
 
 
 supLayout <- c(
   area(1, 1, 6, 2),
   area(1, 3, 6, 4),
-  area(7, 1, 9, 4)
+  area(7, 1, 9, 6),
+  area(10, 1, 12, 6),
+  area(1, 5, 2, 6),
+  area(3, 5, 6, 6)
 )
 
 supP <- wrap_elements(full = supFigUpsetVir) +
   wrap_elements(full = supFigUpsetArt) +
   wrap_elements(full = fullCovgPlot) +
+  wrap_elements(full = flow_sort_strat_gg) +
+  wrap_elements(full = figTeachDna) +
+  wrap_elements(panel = tissue_gg) +
   plot_annotation(tag_levels = "A") +
   plot_layout(design = supLayout) &
   plotTagTheme
 
-saveFinalFigure(plot = supP, fn = "supfig3_v2", prefixDir = "figures/outs", devices = c("png"), gwidth = 6, gheight = 8.5)
+saveFinalFigure(plot = supP, fn = "supfig3_v2", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 8, gheight = 11, addTimestamp = TRUE)
 

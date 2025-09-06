@@ -343,7 +343,6 @@ all_deg_plot <- all_deg %>%
 # cell cycle analysis
 ################################################################################
 library(tricycle)
-# sceChronic <- as.SingleCellExperiment(seuMergedChronic, assay = "RNA")
 
 seuMergedChronic <- SeuratWrappers::Runtricycle(
   object = seuMergedChronic,
@@ -362,7 +361,6 @@ seuMergedChronic <- CellCycleScoring(seuMergedChronic,
   g2m.features = g2m.genes,
   set.ident = FALSE)
 
-# seuMergedChronic$tricyclePosition <- sceChronic_triOut_new$tricyclePosition
 
 ccpos_plot <- tricycle::plot_ccposition_den(
   seuMergedChronic$tricyclePosition, seuMergedChronic$hivStatus, 'HIV status', bw = 30)
@@ -371,8 +369,7 @@ ccpos_plot_final <- ccpos_plot +
   theme_classic() +
   geom_line(aes(x = 0, y = 0, linetype = "All cells", color = "All cells"),
     show.legend = TRUE, inherit.aes = FALSE) +
-  guides(
-  color = guide_legend(override.aes = list(linewidth = 2))) +
+  guides(color = guide_legend(override.aes = list(linewidth = 2))) +
   theme(
     legend.position = "bottom",
     legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000", hjust = 0),
@@ -403,6 +400,14 @@ ccpos_tests <- c(
     x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV DNA+ RNA-"],
     y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV-"])$p)
 
+
+ks.test(
+  x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivPos == "HIV+" & seuMergedChronic$manualAnnotBin == "Tfh"],
+  y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivPos == "HIV-" & seuMergedChronic$manualAnnotBin == "Tfh"])
+
+ks.test(
+  x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivPos == "HIV+" & seuMergedChronic$manualAnnotBin == "Tfh"],
+  y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivPos == "HIV-" & seuMergedChronic$manualAnnotBin == "Tfh"])
 
 ################################################################################
 # supplemental figure
@@ -490,12 +495,16 @@ ccpos_plot_byBin <- tricycle::plot_ccposition_den(
   bw = 10)
 
 ccpos_plot_byBin_final <- ccpos_plot_byBin +
+  geom_line(aes(x = 0, y = 0, linetype = "All cells", color = "All cells"),
+    show.legend = TRUE, inherit.aes = FALSE) +
   theme_classic() +
   guides(color = guide_legend(override.aes = list(linewidth = 2), nrow = 2)) +
+  scale_linetype_manual(values = c("dashed")) +
   theme(
     legend.position = "bottom",
     legend.text = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", hjust = 0),
-    legend.key.spacing.x = unit(BASEPTFONTSIZE - 2, "pt"),
+    legend.key.spacing.x = unit(BASEPTFONTSIZE - 6, "pt"),
+    legend.key.width = unit(6, "pt"),
     axis.line = element_line(linewidth = BASELINEWIDTHSIZE, color = "#000000"),
     plot.title = element_blank(),
     axis.text.x = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
@@ -546,7 +555,8 @@ saveFinalFigure(
   plot = p,
   fn = "fig3_v2",
   prefixDir = "figures/outs",
-  devices = c("png"),
+  devices = c("png", "pdf"),
+  addTimestamp = TRUE,
   gwidth = 8.5,
   gheight = 9)
 
@@ -578,7 +588,8 @@ saveFinalFigure(
   plot = sup_p,
   fn = "supfig4_v1",
   prefixDir = "figures/outs",
-  devices = c("png"),
+  devices = c("png", "pdf"),
+  addTimestamp = TRUE,
   gwidth = 5,
   gheight = 6)
 

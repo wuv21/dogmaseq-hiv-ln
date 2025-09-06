@@ -107,7 +107,7 @@ figA <- ComplexHeatmap::Heatmap(
 # prev reported
 ################################################################################
 Idents(seuMerged_art) <- "manualAnnotBinWithHiv"
-art_goi <- c("IKZF3", "SERPINB9", "BACH2", "GZMB", "PRF1", "FCGR2A", "JUN", "FOSB", "NFKB1", "BCL2")
+art_goi <- c("IKZF3", "SERPINB9", "BACH2", "GZMB", "PRF1", "FCGR2A", "JUN", "FOSB", "NFKB1", "BCL2", "SLC3A2", "ARPP19")
 uniqBins <- unique(seuMerged_art$manualAnnotBin)
 
 prevReported_tests <- lapply(uniqBins, function(x) {
@@ -158,6 +158,94 @@ figB_mod <- figB +
     legend.key.size = unit(.5, "lines")
   ) +
   scale_y_discrete(labels = cleanDotPlotY)
+
+
+# cell death sup fig
+# https://pmc.ncbi.nlm.nih.gov/articles/PMC7169302/
+proApopGOI <- c(
+  "TNFSF10", # trail
+  "FASLG", # fasL
+  "DISC1",
+  "TRADD",
+  "FADD",
+  "BBC3",
+  "BCL2L11", # Bim
+  "BMF",
+  "BIK",
+  "BAD",
+  "BID",
+  "PMAIP1", # noxa
+  "BAX",
+  "BAK1", # bak
+  "AIFM1", # aif
+  "ENDOG",
+  "DIABLO"
+)
+
+antiApopGOI <- c(
+  "BCL2",
+  "BCL2L1", # Bcl-xl
+  "CFLAR", # c-FLIP
+  "BIRC5", # survivin
+  "XIAP"
+)
+
+supFigA <- DotPlot(
+  seuMerged_art,
+  features = c(proApopGOI, antiApopGOI),
+  group.by = "manualAnnotBinWithHiv")
+
+
+supFigA_mod <- supFigA$data %>%
+  dplyr::mutate(category = ifelse(features.plot %in% antiApopGOI, "Anti-apoptosis", "Pro-apoptosis")) %>%
+  dplyr::mutate(new.features.plot = paste0(features.plot, "_", category)) %>%
+  dplyr::mutate(new.features.plot = factor(new.features.plot, levels = unique(new.features.plot))) %>%
+  ggplot() +
+  geom_point(aes(x = id, y = new.features.plot, size = pct.exp, color = avg.exp.scaled)) +
+  guides(
+    y = legendry::guide_axis_nested(
+      key = "_",
+      type = "bracket",
+      angle = 0,
+      levels_text = list(
+        NULL,
+        element_text(angle = 90, hjust = 0.5, vjust = 0.5, color = "#000000", size = 8)))) +
+  scale_color_distiller(palette = "PuRd", direction = 1) +
+  theme_classic() +
+  theme(
+    axis.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    axis.title = element_blank(),
+    axis.text.x = element_markdown(angle = 45, hjust = 1, vjust = 1, size = BASEPTFONTSIZE),
+    legend.title = element_text(size = BASEPTFONTSIZE, color = "#000000", hjust = 0.5),
+    legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000", hjust = 0),
+    panel.grid.major.y = element_line(color = "#cfcfcf30"),
+    axis.line = element_line(color = "#000000", linewidth = BASELINEWIDTHSIZE),
+    plot.margin = margin(10, 10, 10, 10),
+    legend.key.size = unit(.5, "lines")
+  ) +
+  scale_x_discrete(labels = cleanDotPlotY) +
+  labs(size = "Percent\nExpressed", color = "Average\nExpression")
+
+
+celldeath_tests <- lapply(uniqBins, function(x) {
+  Idents(seuMerged_art) <- "manualAnnotBinWithHiv"
+  
+  deg <- FindMarkers(
+    seuMerged_art,
+    features = c(proApopGOI, antiApopGOI),
+    ident.1 = paste0(x, "_HIV+"),
+    ident.2 = paste0(x, "_HIV-"),
+    min.pct = 0
+  )
+  
+  deg$gene <- rownames(deg)
+  return(deg)
+})
+names(celldeath_tests) <- uniqBins
+celldeath_tests_compiled <- bind_rows(celldeath_tests, .id = "bin")
+rownames(celldeath_tests_compiled) <- NULL
+
+celldeath_tests_compiled$p_val_adj2 <- p.adjust(celldeath_tests_compiled$p_val, method = "BH")
 
 
 ################################################################################
@@ -480,8 +568,8 @@ p <- wrap_elements(
   ) +
   
   free(figB_mod + theme(
-    plot.tag = element_text(margin = margin(l = -15, t = 5)),
-    plot.margin = margin(l = 0, r = 20, b = 0)), type = "panel", side = "r") +
+    plot.tag = element_text(margin = margin(l= -15, t = 5)),
+    plot.margin = margin(l = 0, r = 20, b = -40)), type = "panel", side = "r") +
   
   free(all_deg_plot + theme(
     plot.tag = element_text(margin = margin(l = -15, t = 20)),
@@ -510,15 +598,17 @@ p <- wrap_elements(
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig4_v2", prefixDir = "figures/outs", devices = c("png"), gwidth = 7, gheight = 9)
+saveFinalFigure(plot = p, fn = "fig4_v2", prefixDir = "figures/outs", devices = c("png", "pdf"), addTimestamp = TRUE, gwidth = 7, gheight = 9)
 
 
 sup_layout <- c(
-  area(1, 1, 6, 8), # ucell plots
-  area(7, 1, 8, 8) # tricycle
+  area(1, 1, 6, 8), # cell death genes of interest
+  area(7, 1, 11, 8), # ucell plots
+  area(12, 1, 14, 8) # tricycle
 )
 
 sup_p <-
+  supFigA_mod +
   supFigUcellPlot +
   ccpos_plot_final +
   plot_annotation(tag_levels = "A") +
@@ -529,7 +619,8 @@ saveFinalFigure(
   plot = sup_p,
   fn = "supfig5_v1",
   prefixDir = "figures/outs",
-  devices = c("png"),
-  gwidth = 4.5,
-  gheight = 6)
+  devices = c("png", "pdf"),
+  addTimestamp = TRUE,
+  gwidth = 7,
+  gheight = 10)
 

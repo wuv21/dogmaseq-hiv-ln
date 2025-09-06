@@ -27,6 +27,99 @@ uniqClusters <- unique(projUnhashedClean$manualAnnot)
 uniqStages <- c("Viremic", "ART")
 uniqInfection <- names(COLORS$hivStatus)
 
+
+################################################################################
+# panel describing blimp1 cells
+################################################################################
+selectGenesForAtac <- c("PDCD1", "CXCR5", "BCL6", "PRDM1", "CCR5", "TGFB1", "FOXP3", "IL2RA")
+atacGeneScores <- tryCatch({
+  tmp <- ArchR:::.getMatrixValues(
+    ArchRProj = projUnhashedClean,
+    name = selectGenesForAtac,
+    matrixName = "GeneScoreMatrix",
+    log2Norm = FALSE,
+    threads = getArchRThreads()
+  )
+},
+  error = function(cond) {
+    message(conditionMessage(cond))
+    # Choose a return value in case of error
+    return(NULL)
+  })
+
+atacGeneScoresImputed <- imputeMatrix(
+  mat = as.matrix(atacGeneScores),
+  imputeWeights = getImputeWeights(projUnhashedClean))
+
+atacGeneScoresImputed <- log2(atacGeneScoresImputed + 1)
+
+atacImputedDf <- data.frame(
+  cbc = projUnhashedClean$cellNames,
+  manualAnnot = projUnhashedClean$manualAnnot,
+  hivPos = projUnhashedClean$hivPos
+)
+rownames(atacImputedDf) <- atacImputedDf$cbc
+atacImputedDf[colnames(atacGeneScoresImputed), selectGenesForAtac] <- t(atacGeneScoresImputed)
+
+
+clustersOfInterest <- c("CD4 PRDM1+ GC-Tfh", "CD4 GC-Tfh #1", "CD4 GC-Tfh #2", "CD4 Treg #1", "CD4 Treg #2")
+atacImputedDf <- atacImputedDf %>%
+  pivot_longer(cols = -any_of(c("cbc", "manualAnnot", "hivPos")), names_to = "feature", values_to = "exp") %>%
+  dplyr::filter(manualAnnot %in% clustersOfInterest)
+
+
+atacImputedDf %>%
+  dplyr::mutate(feature = factor(feature, levels = selectGenesForAtac)) %>%
+  dplyr::mutate(newY = paste0(hivPos, "_", manualAnnot)) %>%
+  ggplot(aes(y = newY, x = exp)) +
+  ggridges::geom_density_ridges(rel_min_height = 0.01, scale = 0.75, alpha = 0.8, aes(fill = manualAnnot)) + 
+  facet_wrap( ~ feature, scales = "free_x", ncol = 4)
+
+
+atacFigA <- atacImputedDf %>%
+  dplyr::mutate(feature = factor(feature, levels = selectGenesForAtac)) %>%
+  ggplot(aes(y = manualAnnot, x = exp)) +
+  ggridges::geom_density_ridges(rel_min_height = 0.01, scale = 0.75, alpha = 0.8, aes(fill = manualAnnot)) +
+  geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
+  geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
+  facet_wrap(~ feature, scales = "free_x", ncol = 4) +
+  coord_cartesian(clip = "off") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", angle = 45, hjust = 1, vjust = 1),
+    axis.text.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    strip.text = element_text(size = BASEPTFONTSIZE - 1, color = "#000000"),
+    strip.background = element_rect(color = "#00000000", fill = "#00000000"),
+    legend.position = "blank",
+    panel.grid.major = element_line(color = "#cfcfcf50"),
+    axis.line = element_blank(),
+    axis.title.x = element_text(size = BASEPTFONTSIZE - 1),
+    axis.title.y = element_blank()) +
+  labs(
+    x = "imputed log2(counts + 1)")
+
+rnaFigB <- DotPlot(
+  subset(seuMerged, subset = manualAnnot %in% clustersOfInterest),
+  features = selectGenesForAtac,
+  group.by = "manualAnnot")
+
+rnaFigB_mod <- rnaFigB +
+  theme(
+    axis.text = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.title = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = BASEPTFONTSIZE - 1),
+    legend.title = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", hjust = 0.5),
+    legend.text = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", hjust = 0),
+    panel.grid.major.y = element_line(color = "#cfcfcf30"),
+    axis.line = element_line(color = "#000000", linewidth = BASELINEWIDTHSIZE),
+    legend.margin = margin(l = 0),
+    legend.key.size = unit(.5, "lines")
+  )
+
+rnaFigB_mod$guides$guides$colour$params$title <- "Average\n Expression"
+rnaFigB_mod$guides$guides$size$params$title <- "% Expressed"
+
+
 ################################################################################
 # all HIV+ cells
 ################################################################################
@@ -94,6 +187,37 @@ propClusterG <- propClusterDf %>%
     strip.background = element_rect(color = "#ffffff00", fill = NA)) +
   labs(x = "% of cluster with HIV+ cells", color = "HIV status", y = "Cluster (# of total cells)")
 
+propClusterOnlyTfhG <- propClusterDf %>% 
+  dplyr::filter(manualAnnot %in% c("CD4 GC-Tfh #1", "CD4 GC-Tfh #2", "CD4 PRDM1+ GC-Tfh")) %>%
+  dplyr::mutate(manualAnnot = factor(manualAnnot, levels = unique(manualAnnot))) %>%
+  ggplot(aes(x = percent, y = manualAnnot, color = infection)) +
+  geom_linerange(aes(xmin = 0, xmax = percent), position = position_dodge(0.7), linetype = "dotted", show.legend = FALSE) +
+  geom_point(aes(group = infection), position = position_dodge(0.7), alpha = 1, size = 0.5) +
+  geom_text(aes(group = infection, label = percentLabel), vjust = 0.5, hjust = -0.15, position = position_dodge(0.7), size = 1.4, show.legend = FALSE) +
+  geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
+  geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
+  facet_wrap(~ stage, scales = "free_x", nrow = 1) +
+  coord_cartesian(clip = "off") +
+  scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.3))) +
+  guides(colour = guide_legend(override.aes = list(size = 3, alpha = 1), byrow = TRUE)) +
+  theme_classic() +
+  scale_color_manual(values = COLORS[["hivStatus"]]) +
+  theme(
+    panel.spacing = unit(1.2, "lines"),
+    axis.line = element_blank(),
+    axis.text = element_text(color = "#000000"),
+    axis.text.x = element_text(size = BASEPTFONTSIZE - 2),
+    axis.text.y = element_text(size = BASEPTFONTSIZE - 2),
+    panel.grid = element_blank(),
+    panel.grid.major.x = element_line(color = "#eeeeee", linetype = "dotted"),
+    strip.text = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
+    axis.title.y = element_blank(),
+    axis.title.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
+    legend.position = "blank",
+    strip.background = element_rect(color = "#ffffff00", fill = NA)) +
+  labs(x = "% of cluster with HIV+ cells", y = "Cluster (# of total cells)")
+
+
 
 ################################################################################
 # proportion of cluster infected by donor (for just prdm1+ gc-tfh)
@@ -148,12 +272,12 @@ prdmByDonorG <- prdmByDonor %>%
     legend.position = "blank",
     axis.line = element_blank(),
     axis.text = element_text(color = "#000000"),
-    axis.text.x = element_text(color = "#000000", size = 6, angle = 45, hjust = 1, vjust = 1),
-    axis.text.y = element_text(color = "#000000", size = 6),
+    axis.text.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 1, angle = 45, hjust = 1, vjust = 1),
+    axis.text.y = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
     panel.grid = element_blank(),
     panel.grid.major.y = element_line(color = "#eeeeee", linetype = "dotted"),
-    strip.text = element_text(color = "#000000", size = 6),
-    axis.title = element_text(color = "#000000", size = 6),
+    strip.text = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
+    axis.title = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
     axis.title.x = element_blank(),
     strip.background = element_rect(color = "#ffffff00", fill = NA)) +
   labs(y = "% HIV+ of\nPRDM1+ GC-Tfh cells")
@@ -240,12 +364,12 @@ depletionDfG <- depletionDf2 %>%
     legend.position = "blank",
     axis.line = element_blank(),
     axis.text = element_text(color = "#000000"),
-    axis.text.x = element_text(color = "#000000", size = 6),
-    axis.text.y = element_text(color = "#000000", size = 6),
+    axis.text.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 2),
+    axis.text.y = element_text(color = "#000000", size = BASEPTFONTSIZE - 2),
     panel.grid = element_blank(),
     panel.grid.major.y = element_line(color = "#eeeeee", linetype = "dotted"),
-    strip.text = element_text(color = "#000000", size = 6),
-    axis.title = element_text(color = "#000000", size = 6),
+    strip.text = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
+    axis.title = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
     axis.title.x = element_blank(),
     strip.background = element_rect(color = "#ffffff00", fill = NA)) +
   labs(y = "% of donor's Tfh cells")
@@ -306,12 +430,12 @@ dea_blimp1 <- dea_blimp1 %>%
 
 deLollipopTheme <- theme(
   strip.clip = "off",
-  strip.text = element_text(color = "#000000", size = 6),
+  strip.text = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
   strip.background = element_rect(color = "#00000000", fill = "#00000000"),
   axis.text = element_text(color = "#000000"),
-  axis.text.x = element_text(color = "#000000", size = 6),
-  axis.text.y = element_text(color = "#000000", size = 5),
-  axis.title.x = element_text(color = "#000000", size = 6),
+  axis.text.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 2),
+  axis.text.y = element_text(color = "#000000", size = BASEPTFONTSIZE - 2),
+  axis.title.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
   axis.title.y = element_blank(),
   legend.position = "blank",
   panel.grid = element_blank(),
@@ -404,7 +528,7 @@ deg_blimp1 <- FindMarkers(
   min.pct = 0.3,
   assay = "RNA")
 
-deg_blimp1G <- deg_blimp1 %>%
+ deg_blimp1G <- deg_blimp1 %>%
   dplyr::mutate(gene = rownames(.)) %>%
   dplyr::filter(p_val_adj < 0.05) %>%
   dplyr::mutate(direction = ifelse(avg_log2FC > 0, "Up in\nPRDM1+ GC-Tfh", "Up in\nPRDM1- GC-TFh")) %>%
@@ -473,6 +597,7 @@ organoid_g <- organoid_df %>%
     axis.text.x = element_markdown(size = BASEPTAXISFONTSIZE - 2, color = "#000000"),
     legend.position = "bottom",
     legend.key.size = unit(5, "pt"),
+    legend.box.margin = margin(r = 20),
     panel.grid.major.y = element_line(color = "#eeeeee", linetype = "dotted"),
     legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
     legend.title = element_text(size = BASEPTFONTSIZE, color = "#000000"),
@@ -487,21 +612,26 @@ organoid_df %>%
 # final plots
 ################################################################################
 layout <- c(
-  area(1, 1, 8, 9), # prop
-  area(9, 1, 10, 2), # prdm1
-  area(9, 3, 10, 5), # depletion
-  area(9, 6, 10, 7), # prdm1 dea
-  area(9, 8, 10, 9), # prdm1 deg
-  area(11, 1, 13, 6), # representative plot
-  area(11, 6, 13, 9)
+  area(1, 1, 5, 5),
+  area(1, 6, 3, 9),
+  area(4, 6, 5, 9),
+  area(6, 1, 7, 2), # prdm1
+  area(6, 3, 7, 5), # depletion
+  area(6, 6, 7, 7), # prdm1 dea
+  area(6, 8, 7, 9), # prdm1 deg
+  area(8, 1, 10, 6), # representative plot
+  area(8, 6, 10, 9)
 )
 
-p <- patchwork::free(propClusterG + theme(plot.margin = margin(l = 5, r = 25)), type = "panel", side = "lr") +
-  patchwork::free(prdmByDonorG + theme(plot.margin = margin(t = 15)), type = "panel", side = "lr") +
-  patchwork::free(depletionDfG + theme(plot.margin = margin(t = 15)), type = "panel", side = "lr") +
+p <- patchwork::free(atacFigA + theme(plot.margin = margin(t = 10, b = -90)), type = "space", side = "tb") +
+  patchwork::free(rnaFigB_mod, type = "panel") +
+  patchwork::free(propClusterOnlyTfhG +
+      theme(plot.margin = margin(t = 0, l = 0, r = 15)), type = "panel", side = "tlr") +
+  patchwork::free(prdmByDonorG + theme(plot.margin = margin(t = 0)), type = "panel", side = "lr") +
+  patchwork::free(depletionDfG + theme(plot.margin = margin(t = 0)), type = "panel", side = "lr") +
   patchwork::free(dea_blimp1G +
       theme(
-        plot.margin = margin(t = 15),
+        plot.margin = margin(t = 0),
         plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "tlbr") +
   patchwork::free(deg_blimp1G, type = "panel", side = "tlbr") + theme(plot.margin = margin(t = 15)) +
   wrap_elements(full = rep_flow_gg + theme(plot.margin = margin(l = -100, r = 0))) +
@@ -510,6 +640,32 @@ p <- patchwork::free(propClusterG + theme(plot.margin = margin(l = 5, r = 25)), 
         plot.margin = margin(l = 0),
         plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "tlr") +
   plot_annotation(tag_levels = "A") +
-  plot_layout(design = layout)
+  plot_layout(design = layout) &
+  plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig5_v2", prefixDir = "figures/outs", devices = c("png"), gwidth = 8.5, gheight = 10)
+saveFinalFigure(plot = p, fn = "fig5_v2", prefixDir = "figures/outs",
+  devices = c("png", "pdf"), gwidth = 8.5, gheight = 8,
+  addTimestamp = TRUE)
+
+
+layoutP <- c(
+  area(1, 1, 8, 9),
+  area(9, 1, 10, 9),
+  area(11, 1, 13, 3),
+  area(11, 4, 13, 9)
+)
+
+supP <- patchwork::free(propClusterG + theme(plot.margin = margin(l = 5, r = 25)), type = "panel", side = "lr") +
+  patchwork::free(sup_blimp1_dea_plot, type = "panel", side = "lr") +
+  ggplot() + theme(plot.background = element_rect(fill = "#cfcfcf30")) +
+  ggplot() + theme(plot.background = element_rect(fill = "#cfcfcf30")) +
+  plot_annotation(tag_levels = "A") +
+  plot_layout(design = layoutP) &
+  plotTagTheme
+
+saveFinalFigure(plot = supP,
+  fn = "supfig6_v2",
+  prefixDir = "figures/outs", devices = c("png", "pdf"),
+  gwidth = 8, gheight = 10,
+  addTimestamp = TRUE)
+
