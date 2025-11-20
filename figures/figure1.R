@@ -55,6 +55,7 @@ stopifnot(sum(rownames(umapDf) == projUnhashedClean$cellNames) == length(projUnh
 
 umapDf$stage <- projUnhashedClean$stage
 umapDf$manualAnnot <- trimws(projUnhashedClean$manualAnnot)
+umapDf$tissue <- projUnhashedClean$tissue
 umapDf$donor <- projUnhashedClean$donorClean2
 
 umapDf <- dplyr::slice(umapDf, sample(1:n()))
@@ -168,28 +169,22 @@ figABC <- figA + figB + figC + plot_annotation(tag_levels = "A") & plotTagTheme
 # fig d cluster prop by stage and donor
 ################################################################################
 figDData <- umapDf %>% 
-  dplyr::group_by(stage, manualAnnot, donor) %>%
+  dplyr::group_by(stage, manualAnnot, donor, tissue) %>%
   dplyr::tally(name = "totalCells") %>%
   dplyr::group_by(donor) %>%
   dplyr::mutate(percentOfDonor = totalCells / sum(totalCells) * 100)
 
 figDStats <- ggpubr::compare_means(percentOfDonor ~ stage, data = figDData, group.by = c("manualAnnot"), test.method = "BH")
 
-
-figDData %>%
-  # dplyr::filter(stage != "HIV-") %>%
-  dplyr::group_by(manualAnnot, stage) %>%
-  summarize(avg = mean(percentOfDonor)) %>%
-  dplyr::filter(grepl("Th17", manualAnnot))
-
 figD <- figDData %>%
   ggplot(aes(x = percentOfDonor, y = manualAnnot)) +
   geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_boxplot(alpha = 1, outlier.shape = NA, width = 0.5) +
-  geom_point(pch = 21, aes(fill = stage), alpha = 0.5, color = "#000000", stroke = 0.5, size = 1.2) +
+  geom_point(aes(fill = stage, shape = tissue), color = "#000000", alpha = 0.5, stroke = 0.5, size = 1.2) +
   facet_wrap(~ stage, nrow = 1) +
   scale_fill_manual(values = COLORS$stage) +
+  scale_shape_manual(values = c("CLN" = 21, "ILN" = 24)) +
   theme_classic() +
   theme(
     axis.line.x = element_blank(),
@@ -285,9 +280,9 @@ atacImputePlot_v3 <- atacImputedDf_v3 %>%
   scale_color_manual(values = annotColorScale) +
   theme_bw() +
   theme(
-    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = BASEPTFONTSIZE - 3),
-    axis.text.y = element_text(size = BASEPTFONTSIZE - 3),
-    strip.text = element_text(size = BASEPTFONTSIZE - 3),
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = BASEPTFONTSIZE - 2.5, color = "#000000"),
+    axis.text.y = element_text(size = BASEPTFONTSIZE - 2.5, color = "#000000"),
+    strip.text = element_text(size = BASEPTFONTSIZE - 1, color = "#000000"),
     plot.margin = margin(l = 18),
     strip.background = element_rect(color = "#00000000", fill = "#00000000"),
     legend.position = "blank",

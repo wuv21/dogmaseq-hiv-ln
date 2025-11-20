@@ -188,17 +188,15 @@ figCData <- data.frame(
   haystackOut = projUnhashedClean$hivStatus
 ) %>%
   dplyr::mutate(cluster = factor(cluster, levels = unique(cluster))) %>%
-  dplyr::filter(haystackOut == "HIV DNA+ RNA-") %>%
-  # dplyr::filter(haystackOut) %>%
-  dplyr::mutate(stage = factor(stage, levels = c("Viremic", "ART"))) %>%
   dplyr::group_by(stage, cluster, .drop = FALSE) %>%
+  dplyr::filter(haystackOut == "HIV DNA+ RNA-") %>%
+  dplyr::mutate(stage = factor(stage, levels = c("Viremic", "ART"))) %>%
   dplyr::tally(name = "nCells") %>%
   dplyr::group_by(stage) %>%
   dplyr::mutate(percentStage = nCells / sum(nCells) * 100) %>%
   dplyr::mutate(percentStageLabel = paste0(round(percentStage, digits = 2), "%")) %>%
   dplyr::arrange(desc(percentStage), .by_group = TRUE) %>%
-  dplyr::mutate(cluster = factor(cluster, levels = unique(cluster))) %>%
-  dplyr::filter(nCells != 0)
+  dplyr::mutate(cluster = factor(cluster, levels = unique(cluster)))
   
 
 fig2LollipopTheme <- list(
@@ -236,15 +234,15 @@ figDData <- data.frame(
   stage = projUnhashedClean$stage,
   haystackOut = projUnhashedClean$hivStatus
 ) %>%
+  dplyr::mutate(cluster = factor(cluster, levels = levels(figCData$cluster))) %>%
   dplyr::filter(haystackOut == "HIV DNA+/- RNA+") %>%
   dplyr::mutate(stage = factor(stage, levels = c("Viremic", "ART"))) %>%
-  dplyr::group_by(stage, cluster) %>%
+  dplyr::group_by(stage, cluster, .drop = FALSE) %>%
   dplyr::tally(name = "nCells") %>%
   dplyr::group_by(stage) %>%
   dplyr::mutate(percentStage = nCells / sum(nCells) * 100) %>%
   dplyr::mutate(percentStageLabel = paste0(round(percentStage, digits = 2), "%")) %>%
-  dplyr::arrange(desc(percentStage), .by_group = TRUE) %>%
-  dplyr::mutate(cluster = factor(cluster, levels = levels(figCData$cluster)))
+  dplyr::arrange(desc(percentStage), .by_group = TRUE)
 
 figRnaLol <- ggplot(figDData, aes(x = percentStage, y = cluster, color = stage)) +
   theme_classic() +
@@ -616,9 +614,14 @@ figTeach <- ggplot(teachDf) +
     legend.box.margin = margin(t = -5, b = 0),
     legend.direction = "horizontal")
 
+range(unlist(teachDf[teachDf$param == "B cell follicle", "percent_vDNA"]))
+median(unlist(teachDf[teachDf$param == "B cell follicle", "percent_vDNA"]))
+
+range(unlist(teachDf[teachDf$param == "Extra follicular", "percent_vDNA"]))
+median(unlist(teachDf[teachDf$param == "Extra follicular", "percent_vDNA"]))
+
 tissue_tiff <- image_read("external_data/New Figure - TEACH_110_BL_CD4_vDNA_CD20_01(3).tif")
 tissue_gg <- image_ggplot(tissue_tiff)
-
 
 rightSidePanel <- pRGS / 
   figTfh / 

@@ -9,6 +9,7 @@ suppressMessages(library(ggrastr))
 library(ggtext)
 library(ggpubr)
 library(Seurat)
+library(magick)
 
 load("rdata/chronicSub2_deviations_2025-02-26-01-56.Rdata")
 
@@ -84,6 +85,7 @@ atacFigA <- atacImputedDf %>%
   geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   facet_wrap(~ feature, scales = "free_x", ncol = 4) +
   coord_cartesian(clip = "off") +
+  scale_fill_brewer(palette = "Set1") +
   theme_classic() +
   theme(
     axis.text.x = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", angle = 45, hjust = 1, vjust = 1),
@@ -199,7 +201,7 @@ propClusterOnlyTfhG <- propClusterDf %>%
   facet_wrap(~ stage, scales = "free_x", nrow = 1) +
   coord_cartesian(clip = "off") +
   scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.3))) +
-  guides(colour = guide_legend(override.aes = list(size = 3, alpha = 1), byrow = TRUE)) +
+  guides(colour = guide_legend(override.aes = list(size = 1.5, alpha = 1), byrow = TRUE)) +
   theme_classic() +
   scale_color_manual(values = COLORS[["hivStatus"]]) +
   theme(
@@ -213,7 +215,10 @@ propClusterOnlyTfhG <- propClusterDf %>%
     strip.text = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
     axis.title.y = element_blank(),
     axis.title.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
-    legend.position = "blank",
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.text = element_text(color = "#000000", size = 6),
+    legend.margin = margin(0, 0, 0, 0),
     strip.background = element_rect(color = "#ffffff00", fill = NA)) +
   labs(x = "% of cluster with HIV+ cells", y = "Cluster (# of total cells)")
 
@@ -326,6 +331,18 @@ depletionDf2 <- data.frame(
   dplyr::mutate(combinedFactor = factor(combinedFactor, levels = unique(combinedFactor)))
 
 
+depletionDf2 %>%
+  dplyr::mutate(prdm1 = ifelse(grepl("PRDM1", manualAnnot), "PRDM1+", "PRDM1-")) %>%
+  dplyr::group_by(stage, donor, prdm1) %>%
+  dplyr::summarize(
+    sumOfNCells = sum(nCells)
+  ) %>%
+  tidyr::pivot_wider(id_cols = c("stage", "donor"), names_from = "prdm1", values_from = "sumOfNCells") %>%
+  dplyr::mutate(ratio = `PRDM1-` / `PRDM1+`) %>%
+  dplyr::group_by(stage) %>%
+  dplyr::summarize(meanRatio = mean(ratio))
+
+
 depletionCompiledStats <- ggpubr::compare_means(percent ~ combinedFactor,
   depletionDf2, paired = FALSE)
 
@@ -375,6 +392,9 @@ depletionDfG <- depletionDf2 %>%
   labs(y = "% of donor's Tfh cells")
 
 
+################################################################################
+# dea analysis
+################################################################################
 Idents(seuMerged) = "manualAnnot"
 tmp <- FindMarkers(
   seuMerged,
@@ -550,36 +570,149 @@ deg_blimp1 <- FindMarkers(
     plot.margin = margin(r = -80, l = -30, t = 0, b = 25)
   )
 
+################################################################################
+# in vitro activated PBMC
+################################################################################ 
+# gate strategy
+gate_flow_png <- image_read("external_data/iv_infection_sort.png")
+gate_flow_gg <- image_ggplot(gate_flow_png) 
+
+# representative flow
+rep_iv_png <- image_read("external_data/iv_infection.png")
+rep_iv_gg <- image_ggplot(rep_iv_png)
+
+# iv data
+iv_df <- read.csv("external_data/2025_ivinfection_compiled.csv", check.names = FALSE)
+
+iv_df_2 <- iv_df %>%
+  tidyr::pivot_longer(cols = c(-sample), names_to = "gate", values_to = "percent") %>%
+  dplyr::mutate(sample = gsub(".fcs", "", sample)) %>%
+  dplyr::mutate(sample = gsub("_0_(\\d+)", "_0.\\1", sample)) %>%
+  tidyr::separate(sample, into = c("donor", "tp", "condition", "moi"), sep = "_") %>%
+  # dplyr::filter(donor != "ND651") %>%
+  dplyr::mutate(tp = gsub("hours", "hrs", tp)) %>%
+  dplyr::filter(is.na(moi) | moi != 0.01) %>%
+  dplyr::mutate(condition = gsub("no", "No", condition)) %>%
+  dplyr::mutate(condition = factor(condition, levels = unique(condition))) %>%
+  dplyr::mutate(conditionX = paste0(condition, " (", tp, ")")) %>%
+  dplyr::mutate(conditionX = factor(conditionX, levels = unique(conditionX))) %>%
+  dplyr::mutate(parent = ifelse(grepl("p24", gate), "p24+", "non-naive CD8+")) %>%
+  dplyr::mutate(gate2 = gsub("p24\\+ ", "", gate)) %>%
+  dplyr::mutate(gate2 = stringr::str_replace(gate2, "(BLIMP1)(\\+|-) (CCR5)(\\+|-)", "\\1<sup>\\2</sup> \\3<sup>\\4</sup>")) %>%
+  dplyr::arrange(donor, tp, gate, conditionX) %>%
+  dplyr::mutate(gate2_condition = paste0(condition, "_", gate2)) %>%
+  dplyr::mutate(gate2_condition = factor(gate2_condition, levels = unique(gate2_condition)))
+
+iv_conditions_pal <- RColorBrewer::brewer.pal(length(levels(iv_df_2$condition)), "Dark2")
+names(iv_conditions_pal) <- levels(iv_df_2$condition)
+
+# nn_stats <- ggpubr::compare_means(percent ~ condition,
+#   iv_df_2 %>% dplyr::filter(parent == "non-naive CD8+"),
+#   group.by = c("gate", "tp"), p.adjust.method = "BH", paired = TRUE, method = "wilcox")
+# nn_stats$p.sym <- pValSymnum(nn_stats$p.adj)
+# print(nn_stats, n = 40)
+
+iv_graph_settings <- list(
+  geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE),
+  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))),
+  scale_fill_manual(values = iv_conditions_pal),
+  theme_classic(),
+  coord_cartesian(clip = "off"),
+  guides(fill = guide_legend(nrow = 1, byrow = TRUE)),
+  theme(
+    axis.line = element_blank(),
+    axis.text.y = element_markdown(size = BASEPTAXISFONTSIZE, color = "#000000"),
+    axis.title.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_markdown(size = BASEPTFONTSIZE - 2.75, color = "#000000"),
+    legend.position = "bottom",
+    legend.key.size = unit(5, "pt"),
+    legend.box.margin = margin(r = 20),
+    panel.grid.major.y = element_line(color = "#eeeeee", linetype = "dotted"),
+    legend.text = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    legend.title = element_blank(),
+    strip.clip = "off",
+    axis.title.x = element_blank())
+)
+
+nn_iv_g <- iv_df_2 %>%
+  dplyr::filter(parent == "non-naive CD8+") %>%
+  ggplot(aes(x = condition, y = percent, fill = condition)) +
+  stat_summary(geom = "errorbar", fun.data = mean_se) +
+  stat_summary(fun = mean, geom = "bar") +
+  geom_point(aes(group = condition), size = 0.5, show.legend = FALSE) +
+  ggh4x::facet_nested(~ tp + gate2, scales = "free_x",
+    solo_line = TRUE, axes = FALSE, nest_line = element_line(colour = "#000000"), strip = ggh4x::strip_nested(clip = "off")) +
+  labs(color = "Condition", y = "% of non-naive\nCD8- CD3+ cells") +
+  iv_graph_settings
+
+p24_df <- iv_df_2 %>%
+  dplyr::filter(parent == "p24+")
+
+# p24_stats <- ggpubr::compare_means(percent ~ condition,
+#   p24_df,
+#   group.by = c("gate", "tp"), p.adjust.method = "BH", paired = TRUE)
+# p24_stats$p.sym <- pValSymnum(p24_stats$p.adj)
+# p24_stats <- p24_stats %>%
+#   dplyr::filter(p.sym != "ns") %>%
+#   dplyr::mutate(p.position = 100 - 5 * (row_number() %% 5)) %>%
+#   dplyr::select(-method, -p.signif, -p.format)
+
+p24_iv_g <- p24_df %>%
+  ggplot(aes(x = condition, y = percent)) +
+  stat_summary(geom = "errorbar", fun.data = mean_se) +
+  stat_summary(fun = mean, geom = "bar", aes(fill = condition)) +
+  geom_point(aes(group = condition), size = 0.5, show.legend = FALSE) +
+  ggh4x::facet_nested(~ tp + gate2, scales = "free_x", solo_line = TRUE, 
+    axes = FALSE, nest_line = element_line(colour = "#000000"), strip = ggh4x::strip_nested(clip = "off")) +
+  labs(color = "Condition", y = "% of non-naive\nCD8- CD3+ p24+ cells") +
+  iv_graph_settings
+
 
 ################################################################################
 # organoid infection
 ################################################################################
-library(magick)
-
-# rep_flow <- image_read_svg("external_data/fig5_tonsil_organoid_representative_v1.svg", width = 419*3, height = 267*3)
-rep_flow_png <- image_read("external_data/fig5_tonsil_organoid_representative_v1.png")
-
-# Produces a ggplot2 plot with the svg image:
+# representative flow
+rep_flow_png <- image_read("external_data/organoid_rep.png")
 rep_flow_gg <- image_ggplot(rep_flow_png)
 
-organoid_df <- read.csv("external_data/20250520_data.csv", check.names = FALSE)
+# organoid methodology
+organoid_png <- image_read("external_data/tonsil_organoid_workflow.png")
+organoid_gg <- image_ggplot(organoid_png)
 
-organoid_df <- organoid_df %>%
-  pivot_longer(cols = c(2:ncol(organoid_df)), names_to = "gate", values_to = "percent") %>%
-  mutate(as_tibble(str_match(gate, "(p24[+-])(blimp1(lo|mid|hi))"), .name_repair = ~ c("gate", "p24", "blimp1", "ignore"))) %>%
-  mutate(p24 = factor(p24, levels = c("p24-", "p24+"))) %>%
-  arrange(p24) %>%
-  mutate(gate = paste0(blimp1, " ", p24)) %>%
-  mutate(gate = gsub("\\+", "<sup>+</sup>", gate)) %>%
-  mutate(gate = gsub("\\-", "<sup>-</sup>", gate)) %>%
-  mutate(gate = gsub("blimp1(lo|mid|hi)", "Blimp1<sup>\\1</sup>", gate)) %>%
-  mutate(condition = factor(condition, levels = c("Neg", "NL4.3 MOI=0.01", "NL4.3 MOI=0.1", "SUMA MOI=0.01", "SUMA MOI=0.1"))) %>%
-  mutate(gate = factor(gate, levels = unique(gate)))
+# organoid gating
+organoid_gate_png <- image_read("external_data/organoid_gate_strategy.png")
+organoid_gate_gg <- image_ggplot(organoid_gate_png)
+
+# organoid data
+organoid_df <- read.csv("external_data/2025_tonsil_compiled.csv", check.names = FALSE)
+organoid_df <- organoid_df[, colnames(organoid_df) != ""]
+
+organoid_df2 <- organoid_df %>%
+  tidyr::pivot_longer(cols = c(-"donorID", -"day", -"condition"), names_to = "gate", values_to = "percent") %>%
+  dplyr::mutate(gate2 = stringr::str_replace(gate, "(BLIMP1) (dim|low|high)  (p24)(\\+|-)", "\\1<sup>\\2</sup> \\3<sup>\\4</sup>")) %>%
+  dplyr::filter(!grepl("0.01", condition)) %>%
+  dplyr::mutate(blimp1Category = str_match(gate, pattern = "(dim|low|high)")[, 1]) %>%
+  dplyr::mutate(blimp1Category = factor(blimp1Category, levels = c("low", "dim", "high"))) %>%
+  dplyr::mutate(p24Category = grepl("\\+", gate2)) %>%
+  dplyr::arrange(p24Category, blimp1Category) %>%
+  dplyr::mutate(gate2 = factor(gate2, levels = unique(gate2))) %>%
+  dplyr::mutate(condition = factor(condition, levels = c("Neg", "NL4.3 MOI=0.01", "NL4.3 MOI=0.1", "SUMA MOI=0.01", "SUMA MOI=0.1")))
   
-organoid_g <- organoid_df %>%
-  ggplot(aes(x = gate, y = percent)) +
-  geom_col(aes(color = condition), position = position_dodge(width = 0.85), width = 0.65, fill = "#ffffff") +
-  geom_point(aes(group = condition), position = position_dodge(width = 0.85), size = 0.5) +
+
+org_stats <- ggpubr::compare_means(
+  percent ~ condition,
+  organoid_df2,
+  group.by = "gate2", p.adjust.method = "BH", paired = TRUE)
+org_stats
+
+organoid_g <- organoid_df2 %>%
+  ggplot(aes(x = gate2, y = percent, fill = condition)) +
+  stat_summary(geom = "errorbar", fun.data = mean_se, position = position_dodge(width = 0.95), width = 0.5) +
+  stat_summary(fun = mean, position = position_dodge(width = 0.95), geom = "bar") +
+  geom_point(aes(group = condition), position = position_dodge(width = 0.95), size = 0.5, show.legend = FALSE) +
   geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE) +
   geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE) +
   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
@@ -587,17 +720,64 @@ organoid_g <- organoid_df %>%
     key = " ",
     type = "bracket")) +
   theme_classic() +
-  scale_color_manual(values = c("#0c0c0c", "#bdd7e7", "#3182bd", "#fcae91", "#de2d26")) +
-  labs(color = "Condition", y = "Percent of non-naive\nCD8- CD3+ cells") +
-  guides(color = guide_legend(nrow = 2, byrow = TRUE)) +
+  scale_fill_manual(values = c("#3d3d3d", "#bdd7e7", "#3182bd", "#fcae91", "#de2d26")) +
+  labs(fill = "Condition", y = "% of non-naive\nCD8- CD3+ cells") +
+  guides(fill = guide_legend(nrow = 1, byrow = TRUE)) +
+  coord_cartesian(clip = "off") +
   theme(
     axis.line = element_blank(),
-    axis.text.y = element_markdown(size = BASEPTAXISFONTSIZE, color = "#000000"),
+    axis.text.y = element_markdown(size = BASEPTFONTSIZE - 2, color = "#000000"),
     axis.title.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
-    axis.text.x = element_markdown(size = BASEPTAXISFONTSIZE - 2, color = "#000000"),
+    axis.text.x = element_markdown(size = BASEPTFONTSIZE - 2, color = "#000000"),
     legend.position = "bottom",
     legend.key.size = unit(5, "pt"),
-    legend.box.margin = margin(r = 20),
+    panel.grid.major.y = element_line(color = "#eeeeee", linetype = "dotted"),
+    legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    legend.title = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    axis.title.x = element_blank())
+
+organoid_p24_df <- organoid_df2 %>%
+  dplyr::filter(p24Category) %>%
+  dplyr::group_by(donorID, gate2) %>%
+  dplyr::mutate(percent_bg_subtract = percent - percent[1]) %>%
+  dplyr::group_by(donorID, condition) %>%
+  dplyr::mutate(pp2 = percent_bg_subtract / sum(percent_bg_subtract) * 100) %>%
+  dplyr::filter(condition != "Neg") %>%
+  dplyr::mutate(cleanX = gsub(" p24\\S+", "", gate2)) %>%
+  dplyr::mutate(cleanX = factor(cleanX, levels = unique(cleanX)))
+
+org_p24_stats <- ggpubr::compare_means(
+  pp2 ~ condition,
+  organoid_p24_df,
+  group.by = "cleanX", p.adjust.method = "BH", paired = TRUE)
+org_p24_stats$p.sym <- pValSymnum(org_p24_stats$p.adj)
+
+organoid_g2 <- organoid_p24_df %>%
+  ggplot(aes(x = condition, y = pp2)) +
+  stat_summary(geom = "errorbar", fun.data = mean_se, position = position_dodge(width = 0.95), width = 0.5) +
+  stat_summary(fun = mean, position = position_dodge(width = 0.95), geom = "bar", aes(fill = condition)) +
+  geom_point(aes(group = condition), position = position_dodge(width = 0.95), size = 0.5, show.legend = FALSE) +
+  geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE) +
+  ggpubr::stat_pvalue_manual(
+    org_p24_stats, label = "{p.sym}",
+    y.position = 75, size = BASEFONTSIZE * 0.9, vjust = 0.4, tip.length = 0.01) +
+  facet_wrap(~ cleanX, scales = "free_x") +
+  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
+  scale_fill_manual(values = c("#bdd7e7", "#3182bd", "#fcae91", "#de2d26")) +
+  labs(fill = "Condition", y = "Background-subtracted % of \nnon-naive CD8- CD3+ p24+ cells") +
+  coord_cartesian(clip = "off") +
+  theme_classic() +
+  theme(
+    axis.line.x = element_blank(),
+    axis.line.y = element_line(linewidth = BASELINEWIDTHSIZE, color = "#000000"),
+    axis.text.y = element_markdown(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.title.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "blank",
+    legend.key.size = unit(5, "pt"),
+    strip.background = element_rect(color = "#ffffff00", fill = "#ffffff00"),
+    strip.text = element_markdown(size = BASEPTFONTSIZE - 2, color = "#000000"),
     panel.grid.major.y = element_line(color = "#eeeeee", linetype = "dotted"),
     legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
     legend.title = element_text(size = BASEPTFONTSIZE, color = "#000000"),
@@ -608,6 +788,7 @@ organoid_df %>%
   dplyr::reframe(pp = percent / sum(percent) * 100) %>%
   print(n = 200)
 
+  
 ################################################################################
 # final plots
 ################################################################################
@@ -619,14 +800,15 @@ layout <- c(
   area(6, 3, 7, 5), # depletion
   area(6, 6, 7, 7), # prdm1 dea
   area(6, 8, 7, 9), # prdm1 deg
-  area(8, 1, 10, 6), # representative plot
-  area(8, 6, 10, 9)
+  area(8, 1, 10, 3), # representative plot
+  area(8, 4, 10, 7),
+  area(8, 8, 10, 9)
 )
 
-p <- patchwork::free(atacFigA + theme(plot.margin = margin(t = 10, b = -90)), type = "space", side = "tb") +
-  patchwork::free(rnaFigB_mod, type = "panel") +
+p <- atacFigA + theme(plot.margin = margin(t = 0, b = -90)) +
+  patchwork::free(rnaFigB_mod, type = "panel", side = "lr") +
   patchwork::free(propClusterOnlyTfhG +
-      theme(plot.margin = margin(t = 0, l = 0, r = 15)), type = "panel", side = "tlr") +
+      theme(plot.margin = margin(t = -15, l = 0, r = 15, b = -20)), type = "panel", side = "blr") +
   patchwork::free(prdmByDonorG + theme(plot.margin = margin(t = 0)), type = "panel", side = "lr") +
   patchwork::free(depletionDfG + theme(plot.margin = margin(t = 0)), type = "panel", side = "lr") +
   patchwork::free(dea_blimp1G +
@@ -634,11 +816,16 @@ p <- patchwork::free(atacFigA + theme(plot.margin = margin(t = 10, b = -90)), ty
         plot.margin = margin(t = 0),
         plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "tlbr") +
   patchwork::free(deg_blimp1G, type = "panel", side = "tlbr") + theme(plot.margin = margin(t = 15)) +
-  wrap_elements(full = rep_flow_gg + theme(plot.margin = margin(l = -100, r = 0))) +
+  wrap_elements(full = rep_flow_gg + theme(plot.margin = margin(l = 0, r = 0, t = 10))) +
   free(organoid_g + 
       theme(
         plot.margin = margin(l = 0),
-        plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "tlr") +
+        legend.box.margin = margin(l = 105),
+        plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "t") +
+  free(organoid_g2 + 
+      theme(
+        plot.margin = margin(l = 0),
+        plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "t") +
   plot_annotation(tag_levels = "A") +
   plot_layout(design = layout) &
   plotTagTheme
@@ -650,15 +837,11 @@ saveFinalFigure(plot = p, fn = "fig5_v2", prefixDir = "figures/outs",
 
 layoutP <- c(
   area(1, 1, 8, 9),
-  area(9, 1, 10, 9),
-  area(11, 1, 13, 3),
-  area(11, 4, 13, 9)
+  area(9, 1, 10, 9)
 )
 
 supP <- patchwork::free(propClusterG + theme(plot.margin = margin(l = 5, r = 25)), type = "panel", side = "lr") +
   patchwork::free(sup_blimp1_dea_plot, type = "panel", side = "lr") +
-  ggplot() + theme(plot.background = element_rect(fill = "#cfcfcf30")) +
-  ggplot() + theme(plot.background = element_rect(fill = "#cfcfcf30")) +
   plot_annotation(tag_levels = "A") +
   plot_layout(design = layoutP) &
   plotTagTheme
@@ -666,6 +849,29 @@ supP <- patchwork::free(propClusterG + theme(plot.margin = margin(l = 5, r = 25)
 saveFinalFigure(plot = supP,
   fn = "supfig6_v2",
   prefixDir = "figures/outs", devices = c("png", "pdf"),
-  gwidth = 8, gheight = 10,
+  gwidth = 8, gheight = 8,
   addTimestamp = TRUE)
 
+
+layoutP2 <- c(
+  area(1, 1, 3, 9),
+  area(4, 1, 6, 4),
+  area(4, 5, 6, 9),
+  area(7, 1, 9, 3),
+  area(7, 4, 9, 9)
+)
+
+supP2 <- wrap_elements(full = gate_flow_gg + theme(plot.margin = margin(l = 0, r = 0))) +
+  wrap_elements(full = rep_iv_gg + theme(plot.margin = margin(l = 0, r = 0))) +
+  (nn_iv_g / p24_iv_g + plot_layout(guides = "collect") & theme(legend.position = "bottom")) +
+  wrap_elements(full = organoid_gg + theme(plot.margin = margin(l = 0, r = 0))) +
+  wrap_elements(full = organoid_gate_gg + theme(plot.margin = margin(l = 10, r = 0))) +
+  plot_annotation(tag_levels = "A") +
+  plot_layout(design = layoutP2) &
+  plotTagTheme
+
+saveFinalFigure(plot = supP2,
+  fn = "supfig7_v2",
+  prefixDir = "figures/outs", devices = c("png", "pdf"),
+  gwidth = 8, gheight = 8,
+  addTimestamp = TRUE)

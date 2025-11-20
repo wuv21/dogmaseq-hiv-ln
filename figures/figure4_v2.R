@@ -521,6 +521,27 @@ saveRDS(supDataCheckpoint, "rds/supFig_art_data.rds")
 ccpos_plot <- tricycle::plot_ccposition_den(
   seuMerged_art$tricyclePosition, seuMerged_art$hivPos, 'HIV', bw = 30)
 
+
+ccpos_plot_tmp <- tricycle::plot_ccposition_den(
+  seuMerged_art$tricyclePosition, seuMerged_art$manualAnnot, 'HIV', bw = 30, palette.v = multiHueColorPalette)
+
+ccpos_plot_tmp + 
+  guides(
+    color = guide_legend(override.aes = list(linewidth = 3))) +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = 10, color = "#000000", hjust = 0),
+    legend.key.width = unit(25, "pt"),
+    legend.margin = margin(t = -10),
+    legend.spacing.x = unit(BASEPTFONTSIZE, "pt"),
+    axis.line = element_line(linewidth = BASELINEWIDTHSIZE, color = "#000000"),
+    plot.title = element_blank(),
+    axis.text.x = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.text.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.title.x = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    axis.title.y = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    legend.title = element_blank())
+
 ccpos_plot_final <- ccpos_plot +
   theme_classic() +
   geom_line(aes(x = 0, y = 0, linetype = "All cells", color = "All cells"),
