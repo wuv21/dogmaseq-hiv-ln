@@ -22,27 +22,6 @@ source("scripts/colorPalettes.R")
 ################################################################################
 # fig 1 umap
 ################################################################################
-
-# seumerged for spatial
-# seuMerged$manualAnnot <- trimws(seuMerged$manualAnnot)
-# seuMerged$MULTI_ID <- NULL
-# seuMerged$MULTI_classification <- NULL
-# seuMerged$haystackOut <- NULL
-# seuMerged$isBCell <- NULL
-# seuMerged$isApcNk <- NULL
-# seuMerged$isCD4 <- NULL
-# seuMerged$hivPos <- NULL
-# seuMerged$Clusters_v3 <- NULL
-# seuMerged$Clusters_v2 <- NULL
-# seuMerged$hivStatus <- NULL
-# seuMerged$gex_UMI <- NULL
-# 
-# seuMerged[['HTO']] <- NULL
-# seuMerged[['ADT']] <- NULL
-# 
-# saveRDS(seuMerged, file = "rds/seuMerged_sanitized_for_cillian_20250813.rds")
-
-
 projUnhashedClean$stage <- ifelse(projUnhashedClean$stage == "Chronic", "Viremic", projUnhashedClean$stage)
 # fix naming for CD4 Trm #1
 projUnhashedClean$manualAnnot <- ifelse(projUnhashedClean$manualAnnot == "CD4 Trm #1", "CD4 Trm", projUnhashedClean$manualAnnot)
@@ -180,7 +159,7 @@ figD <- figDData %>%
   ggplot(aes(x = percentOfDonor, y = manualAnnot)) +
   geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
-  geom_boxplot(alpha = 1, outlier.shape = NA, width = 0.5) +
+  geom_boxplot(alpha = 1, outliers = FALSE, width = 0.5) +
   geom_point(aes(fill = stage, shape = tissue), color = "#000000", alpha = 0.5, stroke = 0.5, size = 1.2) +
   facet_wrap(~ stage, nrow = 1) +
   scale_fill_manual(values = COLORS$stage) +

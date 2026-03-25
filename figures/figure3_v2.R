@@ -71,12 +71,12 @@ for (i in seq_along(chronic_markerTest_deviations_heatmapText$group)) {
     TRUE ~ " ")
 }
 
+set.seed(42)
 tmp <- ComplexHeatmap::Heatmap(
   matrix = chronic_markerTest_deviations_heatmap,
   name = " ",
   border = FALSE,
   cluster_rows = TRUE,
-  show_row_names = FALSE,
   row_dend_side = "left",
   show_row_dend = TRUE,
   cluster_columns = FALSE,
@@ -97,6 +97,10 @@ tmp <- ComplexHeatmap::Heatmap(
     labels_gp = gpar(fontsize = 8)),
   show_column_dend = TRUE,
   row_km = 12,
+  row_km_repeats = 100,
+  # row_labels = as.character(c(1:194)),
+  show_row_names = TRUE,
+  row_names_gp = gpar(fontsize = 6),
   top_annotation = ComplexHeatmap::HeatmapAnnotation(
     `Phenotype` = anno_block(
       gp = gpar(fill = "#ffffff", col = "#ffffff"),
@@ -125,22 +129,59 @@ tmp <- ComplexHeatmap::Heatmap(
     ),
     annotation_name_gp = gpar(fontsize = 8),
     simple_anno_size = unit(0.3, "cm")
-  ),
-  right_annotation = rowAnnotation(
-    foo = anno_block(gp = gpar(fill = "#000000"), width = unit(12/14, "pt")),
-    bar = anno_block(
-      graphics = function(index, levels) {
-        lbls <- rownames(chronic_markerTest_deviations_heatmap)[index]
-        lbls <- gsub("_\\d+", "", lbls)
-        lbls <- str_wrap(paste(lbls, collapse = " "), width = 40)
-
-        grid.rect(gp = gpar(fill = NA, col = NA))
-        txt = paste(lbls, collapse = ",")
-        grid.text(txt, 0.01, 0.5, rot = 0, hjust = 0, gp = gpar(fontsize = 6))
-      },
-      width = unit(6, "cm"))
   )
+  # right_annotation = rowAnnotation(
+  #   # ind = anno_text(
+  #   #   x = c(1:nrow(chronic_markerTest_deviations_heatmap)),
+  #   #   rot = 0,
+  #   #   gp = gpar(fontsize = 5, fontfamily = "mono")),
+  #   foo = anno_block(gp = gpar(fill = "#000000"), width = unit(12/14, "pt")),
+  #   bar = anno_block(
+  #     graphics = function(index, levels) {
+  #       lbls <- rownames(chronic_markerTest_deviations_heatmap)[index]
+  #       lbls <- gsub("_\\d+", "", lbls)
+  #       lbls <- str_wrap(paste(lbls, collapse = " "), width = 40)
+  # 
+  #       grid.rect(gp = gpar(fill = NA, col = NA))
+  #       txt = paste(lbls, collapse = ",")
+  #       grid.text(txt, 0.01, 0.5, rot = 0, hjust = 0, gp = gpar(fontsize = 6))
+  #     },
+  #     width = unit(6, "cm"))
+  # )
 )
+
+set.seed(42)
+heatmap_tmp <- draw(tmp)
+final_row_order <- unname(unlist(row_order(heatmap_tmp)))
+new_row_numbers <- rep(0, nrow(chronic_markerTest_deviations_heatmap))
+new_row_numbers[final_row_order] <- c(1:length(new_row_numbers))
+
+
+rightAnnot <- rowAnnotation(
+  ind = anno_text(
+    x = new_row_numbers,
+    rot = 0,
+    just = "left",
+    gp = gpar(fontsize = 3, fontfamily = "mono"), width = unit(0.4, "cm")),
+  foo = anno_block(gp = gpar(fill = "#000000"), width = unit(12/14, "pt")),
+  bar = anno_block(
+    graphics = function(index, levels) {
+      lbls <- rownames(chronic_markerTest_deviations_heatmap)[index]
+      lbls <- gsub("_\\d+", "", lbls)
+      nums <- new_row_numbers[index]
+      
+      lbls <- str_wrap(paste(paste0(nums, ": ", lbls), collapse = ", "), width = 40)
+      
+      print("lbls")
+      print(lbls)
+      
+      grid.rect(gp = gpar(fill = NA, col = NA))
+      grid.text(lbls, 0.01, 0.5, rot = 0, hjust = 0, gp = gpar(fontsize = 5.2))
+    },
+    width = unit(6, "cm"))
+)
+# set.seed(42)
+# draw(tmp + rightAnnot)
 
 
 projChronicSub2$manualAnnotBinWithHivShortStatus <- paste0(projChronicSub2$manualAnnotBin, "_", projChronicSub2$hivPos)
@@ -528,7 +569,7 @@ layout <- c(
 
 set.seed(42)
 p <- wrap_elements(
-  grid.grabExpr(draw(tmp,
+  grid.grabExpr(draw(tmp + rightAnnot,
     heatmap_legend_side = "bottom",
     annotation_legend_side = "bottom",
     merge_legend = TRUE))

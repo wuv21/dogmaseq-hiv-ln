@@ -296,8 +296,8 @@ figTfhCompStats$p.sym <- pValSymnum(figTfhCompStats$p.adj)
 
 
 figTfh <- ggplot(tmp, aes(x = xlbl, y = propOfHIVPos * 100)) +
-  geom_boxplot(outlier.colour = NA, aes(color = stage), show.legend = FALSE) +
-  geom_point(alpha = 0.8, size = 0.8) +
+  geom_boxplot(aes(color = stage), outliers = FALSE, show.legend = FALSE) +
+  geom_point(alpha = 0.8, pch = 21, color = "#000000", fill = "#ffffff", size = 0.8) +
   geom_line(aes(group = donor), linewidth = 0.5, color = "#cfcfcf50") +
   lemon::facet_rep_wrap(~ stage, nrow = 2) +
   theme_bw() +
@@ -511,8 +511,8 @@ propStats <- propStats %>%
   dplyr::select(-method, -p.signif, -p.format)
 
 pRGS <- ggplot(props2, aes(x = xaxislbl, y = rgs2)) +
-  geom_boxplot(aes(color = stage), outlier.shape = NA) +
-  geom_point(size = 0.8, alpha = 0.8, color = "#000000") +
+  geom_boxplot(aes(color = stage), outliers = FALSE) +
+  geom_point(size = 0.8, alpha = 0.8, color = "#000000", pch = 21, fill = "#ffffff") +
   guides(x = legendry::guide_axis_nested(
     key = "_",
     type = "bracket",
@@ -563,6 +563,7 @@ figTeachDnaStats$p.sym <- pValSymnum(figTeachDnaStats$p.adj)
 
 
 figTeachDna <- ggplot(teachDf2, aes(x = timepoint, y = dna)) +
+  geom_boxplot(outliers = FALSE) +
   geom_point() +
   geom_line(aes(group = ID)) +
   theme_classic() +
@@ -590,7 +591,7 @@ figTeachCompStats$p.sym <- pValSymnum(figTeachCompStats$p.adj)
 figTeach <- ggplot(teachDf) +
   geom_boxplot(aes(x = param, y = percent_vDNA), outliers = FALSE, fill = NA, width = 0.5) +
   geom_jitter(aes(x = param, y = percent_vDNA, fill = as.character(timepoint)),
-    height = 0, width = 0.3, shape = 21, color = "#000000") +
+    height = 0, width = 0.3, shape = 21, alpha = 0.8, color = "#000000") +
   theme_classic() +
   scale_color_manual(values = c("blue", "red")) +
   scale_y_continuous(limits = c(0, 110), expand = expansion(mult = c(0.05, 0.05)), breaks = seq(0, 100, by = 20)) +
@@ -661,7 +662,7 @@ p <- wrap_elements(full = figA) +
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig2_v1", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 8.5, gheight = 10, addTimestamp = TRUE)
+saveFinalFigure(plot = p, fn = "fig2_v2", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 8.5, gheight = 10, addTimestamp = TRUE)
 
 
 supLayout <- c(
@@ -683,5 +684,5 @@ supP <- wrap_elements(full = supFigUpsetVir) +
   plot_layout(design = supLayout) &
   plotTagTheme
 
-saveFinalFigure(plot = supP, fn = "supfig3_v2", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 8, gheight = 11, addTimestamp = TRUE)
+saveFinalFigure(plot = supP, fn = "supfig3_v3", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 8, gheight = 11, addTimestamp = TRUE)
 

@@ -260,12 +260,13 @@ prdmByDonorG <- prdmByDonor %>%
   ggpubr::stat_pvalue_manual(
     prdmByDonorCompiledStats, label = "{p.sym}",
     y.position = c(13.5, 0.35), size = BASEFONTSIZE * 0.6, vjust = 0, tip.length = 0.01) +
-  stat_summary(geom = "bar", width = 0.6, fun = mean, fill = "#ffffff00", aes(color = infection)) +
+  # stat_summary(geom = "bar", width = 0.6, fun = mean, fill = "#ffffff00", aes(color = infection)) +
   geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_hline(yintercept = 0, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
+  geom_boxplot(outliers = FALSE, aes(color = infection), width = 0.6) +
   geom_jitter(aes(fill = infection), color = "#000000", pch = 21, height = 0, alpha = 0.75, size = 0.8, show.legend = FALSE, width = 0.2) +
-  stat_summary(fun = mean_se_onlyPos, geom = "crossbar", width = 0.3, linewidth = 0.3) +
-  stat_summary(fun.data = mean_se_onlyPosVertical, geom = "linerange", linewidth = 0.3) +
+  # stat_summary(fun = mean_se_onlyPos, geom = "crossbar", width = 0.3, linewidth = 0.3) +
+  # stat_summary(fun.data = mean_se_onlyPosVertical, geom = "linerange", linewidth = 0.3) +
   facet_wrap(~ stage, scales = "free_y") +
   coord_cartesian(clip = "off") +
   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.08))) +
@@ -355,9 +356,10 @@ depletionCompiledStats <- depletionCompiledStats %>%
 depletionDfG <- depletionDf2 %>%
   ggplot(aes(y = percent, x = combinedFactor)) +
   geom_line(aes(group = donor), color = "#bbbbbb75", linewidth = 0.3) +
-  stat_summary(geom = "bar", width = 0.6, fun = mean, fill = "#ffffff00", aes(color = stage)) +
+  # stat_summary(geom = "bar", width = 0.6, fun = mean, fill = "#ffffff00", aes(color = stage)) +
   geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_hline(yintercept = 0, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
+  geom_boxplot(outliers = FALSE, aes(color = stage), width = 0.6) +
   geom_point(color = "#000000", pch = 21, alpha = 0.75, size = 0.8, show.legend = FALSE) +
   guides(x = legendry::guide_axis_nested(
     key = "_",
@@ -370,8 +372,8 @@ depletionDfG <- depletionDf2 %>%
     depletionCompiledStats,
     label = "{p.sym}", y.position = "p.position",
     size = BASEFONTSIZE * 0.7, vjust = 0.4, tip.length = 0.007, hide.ns = TRUE) +
-  stat_summary(fun = mean_se_onlyPos, geom = "crossbar", width = 0.3, linewidth = 0.3) +
-  stat_summary(fun.data = mean_se_onlyPosVertical, geom = "linerange", linewidth = 0.3) +
+  # stat_summary(fun = mean_se_onlyPos, geom = "crossbar", width = 0.3, linewidth = 0.3) +
+  # stat_summary(fun.data = mean_se_onlyPosVertical, geom = "linerange", linewidth = 0.3) +
   scale_color_manual(values = COLORS$stage) +
   coord_cartesian(clip = "off") +
   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.08))) +
@@ -596,7 +598,7 @@ iv_df_2 <- iv_df %>%
   dplyr::mutate(condition = factor(condition, levels = unique(condition))) %>%
   dplyr::mutate(conditionX = paste0(condition, " (", tp, ")")) %>%
   dplyr::mutate(conditionX = factor(conditionX, levels = unique(conditionX))) %>%
-  dplyr::mutate(parent = ifelse(grepl("p24", gate), "p24+", "non-naive CD8+")) %>%
+  dplyr::mutate(parent = ifelse(grepl("p24", gate), "p24+", "non-naive CD8-")) %>%
   dplyr::mutate(gate2 = gsub("p24\\+ ", "", gate)) %>%
   dplyr::mutate(gate2 = stringr::str_replace(gate2, "(BLIMP1)(\\+|-) (CCR5)(\\+|-)", "\\1<sup>\\2</sup> \\3<sup>\\4</sup>")) %>%
   dplyr::arrange(donor, tp, gate, conditionX) %>%
@@ -613,9 +615,9 @@ names(iv_conditions_pal) <- levels(iv_df_2$condition)
 # print(nn_stats, n = 40)
 
 iv_graph_settings <- list(
-  geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE),
   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))),
-  scale_fill_manual(values = iv_conditions_pal),
+  # scale_fill_manual(values = iv_conditions_pal),
+  scale_color_manual(values = iv_conditions_pal),
   theme_classic(),
   coord_cartesian(clip = "off"),
   guides(fill = guide_legend(nrow = 1, byrow = TRUE)),
@@ -638,13 +640,19 @@ iv_graph_settings <- list(
 )
 
 nn_iv_g <- iv_df_2 %>%
-  dplyr::filter(parent == "non-naive CD8+") %>%
-  ggplot(aes(x = condition, y = percent, fill = condition)) +
-  stat_summary(geom = "errorbar", fun.data = mean_se) +
-  stat_summary(fun = mean, geom = "bar") +
-  geom_point(aes(group = condition), size = 0.5, show.legend = FALSE) +
-  ggh4x::facet_nested(~ tp + gate2, scales = "free_x",
-    solo_line = TRUE, axes = FALSE, nest_line = element_line(colour = "#000000"), strip = ggh4x::strip_nested(clip = "off")) +
+  dplyr::filter(parent == "non-naive CD8-") %>%
+  ggplot(aes(x = condition, y = percent)) +
+  geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE) +
+  geom_boxplot(width = 0.6, linewidth = 0.5, aes(color = condition), outliers = FALSE) +
+  # stat_summary(geom = "errorbar", fun.data = mean_se) +
+  # stat_summary(fun = mean, geom = "bar") +
+  geom_point(aes(group = condition), color = "#000000", pch = 21, alpha = 0.75, size = 0.5, show.legend = FALSE) +
+  ggh4x::facet_nested(~ tp + gate2,
+    scales = "free_x",
+    solo_line = TRUE,
+    axes = FALSE,
+    nest_line = element_line(colour = "#000000"),
+    strip = ggh4x::strip_nested(clip = "off")) +
   labs(color = "Condition", y = "% of non-naive\nCD8- CD3+ cells") +
   iv_graph_settings
 
@@ -662,9 +670,11 @@ p24_df <- iv_df_2 %>%
 
 p24_iv_g <- p24_df %>%
   ggplot(aes(x = condition, y = percent)) +
-  stat_summary(geom = "errorbar", fun.data = mean_se) +
-  stat_summary(fun = mean, geom = "bar", aes(fill = condition)) +
-  geom_point(aes(group = condition), size = 0.5, show.legend = FALSE) +
+  geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE) +
+  geom_boxplot(width = 0.6, linewidth = 0.5, aes(color = condition), outliers = FALSE) +
+  # stat_summary(geom = "errorbar", fun.data = mean_se) +
+  # stat_summary(fun = mean, geom = "bar", aes(fill = condition)) +
+  geom_point(aes(group = condition), color = "#000000", pch = 21, alpha = 0.75, size = 0.5, show.legend = FALSE) +
   ggh4x::facet_nested(~ tp + gate2, scales = "free_x", solo_line = TRUE, 
     axes = FALSE, nest_line = element_line(colour = "#000000"), strip = ggh4x::strip_nested(clip = "off")) +
   labs(color = "Condition", y = "% of non-naive\nCD8- CD3+ p24+ cells") +
@@ -709,20 +719,19 @@ org_stats <- ggpubr::compare_means(
 org_stats
 
 organoid_g <- organoid_df2 %>%
-  ggplot(aes(x = gate2, y = percent, fill = condition)) +
-  stat_summary(geom = "errorbar", fun.data = mean_se, position = position_dodge(width = 0.95), width = 0.5) +
-  stat_summary(fun = mean, position = position_dodge(width = 0.95), geom = "bar") +
-  geom_point(aes(group = condition), position = position_dodge(width = 0.95), size = 0.5, show.legend = FALSE) +
+  ggplot(aes(x = gate2, y = percent)) +
   geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE) +
   geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE) +
+  geom_boxplot(aes(color = condition), width = 0.5, linewidth = 0.5, outliers = FALSE, position = position_dodge(width = 0.95)) +
+  geom_point(aes(group = condition), color = "#000000", pch = 21, alpha = 0.75, size = 0.5,position = position_dodge(width = 0.95), show.legend = FALSE) +
   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
   guides(x = legendry::guide_axis_nested(
     key = " ",
     type = "bracket")) +
   theme_classic() +
-  scale_fill_manual(values = c("#3d3d3d", "#bdd7e7", "#3182bd", "#fcae91", "#de2d26")) +
-  labs(fill = "Condition", y = "% of non-naive\nCD8- CD3+ cells") +
-  guides(fill = guide_legend(nrow = 1, byrow = TRUE)) +
+  scale_color_manual(values = c("#3d3d3d", "#bdd7e7", "#3182bd", "#fcae91", "#de2d26")) +
+  labs(color = "Condition", y = "% of non-naive\nCD8- CD3+ cells") +
+  guides(color = guide_legend(nrow = 1, byrow = TRUE)) +
   coord_cartesian(clip = "off") +
   theme(
     axis.line = element_blank(),
@@ -754,17 +763,16 @@ org_p24_stats$p.sym <- pValSymnum(org_p24_stats$p.adj)
 
 organoid_g2 <- organoid_p24_df %>%
   ggplot(aes(x = condition, y = pp2)) +
-  stat_summary(geom = "errorbar", fun.data = mean_se, position = position_dodge(width = 0.95), width = 0.5) +
-  stat_summary(fun = mean, position = position_dodge(width = 0.95), geom = "bar", aes(fill = condition)) +
-  geom_point(aes(group = condition), position = position_dodge(width = 0.95), size = 0.5, show.legend = FALSE) +
   geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE) +
+  geom_boxplot(aes(color = condition), width = 0.5, linewidth = 0.5, outliers = FALSE, position = position_dodge(width = 0.95)) +
+  geom_point(aes(group = condition), color = "#000000", pch = 21, alpha = 0.75, size = 0.5,position = position_dodge(width = 0.95), show.legend = FALSE) +
   ggpubr::stat_pvalue_manual(
     org_p24_stats, label = "{p.sym}",
     y.position = 75, size = BASEFONTSIZE * 0.9, vjust = 0.4, tip.length = 0.01) +
   facet_wrap(~ cleanX, scales = "free_x") +
   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
-  scale_fill_manual(values = c("#bdd7e7", "#3182bd", "#fcae91", "#de2d26")) +
-  labs(fill = "Condition", y = "Background-subtracted % of \nnon-naive CD8- CD3+ p24+ cells") +
+  scale_color_manual(values = c("#bdd7e7", "#3182bd", "#fcae91", "#de2d26")) +
+  labs(color = "Condition", y = "Background-subtracted % of \nnon-naive CD8- CD3+ p24+ cells") +
   coord_cartesian(clip = "off") +
   theme_classic() +
   theme(
@@ -782,11 +790,11 @@ organoid_g2 <- organoid_p24_df %>%
     legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
     legend.title = element_text(size = BASEPTFONTSIZE, color = "#000000"),
     axis.title.x = element_blank())
-
-organoid_df %>%
-  dplyr::group_by(condition, p24) %>%
-  dplyr::reframe(pp = percent / sum(percent) * 100) %>%
-  print(n = 200)
+# 
+# organoid_df %>%
+#   dplyr::group_by(condition, p24) %>%
+#   dplyr::reframe(pp = percent / sum(percent) * 100) %>%
+#   print(n = 200)
 
   
 ################################################################################
@@ -830,7 +838,7 @@ p <- atacFigA + theme(plot.margin = margin(t = 0, b = -90)) +
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig5_v2", prefixDir = "figures/outs",
+saveFinalFigure(plot = p, fn = "fig5_v3", prefixDir = "figures/outs",
   devices = c("png", "pdf"), gwidth = 8.5, gheight = 8,
   addTimestamp = TRUE)
 
@@ -847,7 +855,7 @@ supP <- patchwork::free(propClusterG + theme(plot.margin = margin(l = 5, r = 25)
   plotTagTheme
 
 saveFinalFigure(plot = supP,
-  fn = "supfig6_v2",
+  fn = "supfig6_v3",
   prefixDir = "figures/outs", devices = c("png", "pdf"),
   gwidth = 8, gheight = 8,
   addTimestamp = TRUE)
@@ -871,7 +879,7 @@ supP2 <- wrap_elements(full = gate_flow_gg + theme(plot.margin = margin(l = 0, r
   plotTagTheme
 
 saveFinalFigure(plot = supP2,
-  fn = "supfig7_v2",
+  fn = "supfig7_v3",
   prefixDir = "figures/outs", devices = c("png", "pdf"),
   gwidth = 8, gheight = 8,
   addTimestamp = TRUE)
