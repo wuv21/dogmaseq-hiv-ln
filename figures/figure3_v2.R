@@ -319,11 +319,32 @@ all_dea <- FindMarkers(
   assay = "ADT"
 )
 
+all_dea_lr <- FindMarkers(
+  seuMergedChronic,
+  features = tsaCatalog[!tsaCatalog$isCtrl, "DNA_ID"],
+  ident.1 = "HIV+",
+  ident.2 = "HIV-",
+  test.use = "LR",
+  latent.vars = c("donorClean2"),
+  min.pct = 0.3,
+  assay = "ADT"
+)
+
 all_deg <- FindMarkers(
   seuMergedChronic,
   ident.1 = "HIV+",
   ident.2 = "HIV-",
   min.pct = 0.3,
+  assay = "RNA"
+)
+
+all_deg_mast <- FindMarkers(
+  seuMergedChronic,
+  ident.1 = "HIV+",
+  ident.2 = "HIV-",
+  min.pct = 0.3,
+  test.use = "MAST",
+  latent.vars = c("donorClean2"),
   assay = "RNA"
 )
 
@@ -341,7 +362,7 @@ deLollipop_theme <- list(
   ))
 
 
-all_dea_plot <- all_dea %>%
+all_dea_plot <- all_dea_lr %>%
   as.data.frame() %>%
   dplyr::mutate(DNA_ID = rownames(.)) %>%
   left_join(tsaCatalog[, c("DNA_ID", "cleanName")]) %>%
@@ -360,7 +381,7 @@ all_dea_plot <- all_dea %>%
   deLollipop_theme +
   labs(y = "Surface protein", title = "All cells\nSurface protein")
 
-all_deg_plot <- all_deg %>%
+all_deg_plot <- all_deg_mast %>%
   as.data.frame() %>%
   dplyr::mutate(gene = rownames(.)) %>%
   dplyr::filter(gene != "HIV") %>%
@@ -459,6 +480,8 @@ tfh_dea <- FindMarkers(
   features = tsaCatalog[!tsaCatalog$isCtrl, "DNA_ID"],
   ident.1 = "Tfh_HIV+",
   ident.2 = "Tfh_HIV-",
+  test.use = "LR",
+  latent.vars = "donorClean2",
   min.pct = 0.3,
   assay = "ADT")
 
@@ -466,6 +489,8 @@ tfh_deg <- FindMarkers(
   seuMergedChronic,
   ident.1 = "Tfh_HIV+",
   ident.2 = "Tfh_HIV-",
+  test.use = "MAST",
+  latent.vars = "donorClean2",
   assay = "RNA",
   min.pct = 0.3)
 
@@ -594,7 +619,7 @@ p <- wrap_elements(
 
 saveFinalFigure(
   plot = p,
-  fn = "fig3_v2",
+  fn = "fig3_v3 ",
   prefixDir = "figures/outs",
   devices = c("png", "pdf"),
   addTimestamp = TRUE,
@@ -627,7 +652,7 @@ sup_p <-
 
 saveFinalFigure(
   plot = sup_p,
-  fn = "supfig4_v1",
+  fn = "supfig4_v2",
   prefixDir = "figures/outs",
   devices = c("png", "pdf"),
   addTimestamp = TRUE,

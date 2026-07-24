@@ -441,13 +441,14 @@ dea_blimp1 <- FindMarkers(
   ident.1 = "CD4 PRDM1+ GC-Tfh",
   ident.2 = c("CD4 GC-Tfh #1", "CD4 GC-Tfh #2"),
   min.pct = 0.3,
+  test.use = "LR",
+  latent.vars = "donorClean2",
   features = tsaCatalog[!tsaCatalog$isCtrl, "DNA_ID"],
   assay = "ADT")
 
 dea_blimp1 <- dea_blimp1 %>%
   dplyr::mutate(DNA_ID = rownames(.)) %>%
   left_join(dplyr::select(tsaCatalog, DNA_ID, cleanName)) %>%
-  dplyr::select(-p_val) %>%
   dplyr::arrange(desc(avg_log2FC))
 
 deLollipopTheme <- theme(
@@ -467,7 +468,8 @@ deLollipopTheme <- theme(
 
 
 dea_blimp1G <- dea_blimp1 %>%
-  dplyr::filter(p_val_adj < 0.05) %>%
+  dplyr::mutate(padj2 = p.adjust(p_val, method = "BH")) %>%
+  dplyr::filter(padj2 < 0.05) %>%
   dplyr::mutate(direction = ifelse(avg_log2FC > 0, "Up in\nPRDM1+ GC-Tfh", "Up in\nPRDM1- GC-TFh")) %>%
   dplyr::group_by(direction) %>%
   dplyr::slice_max(abs(avg_log2FC), n = 10) %>%
@@ -475,6 +477,7 @@ dea_blimp1G <- dea_blimp1 %>%
   dplyr::mutate(cleanName = gsub(" \\(Neuropilin-1\\)", "", cleanName)) %>%
   dplyr::mutate(cleanName = gsub(" \\(DNAM-1\\)", "", cleanName)) %>%
   dplyr::mutate(cleanName = gsub(" \\(Ecto-5'-nucleotidase\\)", "", cleanName)) %>%
+  dplyr::mutate(cleanName = gsub(" \\(Nectin-2\\)", "", cleanName)) %>%
   dplyr::mutate(cleanName = factor(cleanName, levels = unique(cleanName))) %>%
   ggplot(aes(x = avg_log2FC, y = cleanName, color = direction)) +
   geom_linerange(aes(xmin = 0, xmax = avg_log2FC), linetype = "dotted") +
@@ -486,7 +489,7 @@ dea_blimp1G <- dea_blimp1 %>%
   labs(x = "Average log2(FC)") +
   deLollipopTheme +
   theme(
-    plot.margin = margin(r = -10, l = -15, t = 0, b = 25)
+    plot.margin = margin(r = -10, l = -25, t = 5, b = 5)
   )
 
 
@@ -499,6 +502,8 @@ dea_blimp1_subsetted <- lapply(unique(seuMerged$stage), function(x) {
     ident.1 = "CD4 PRDM1+ GC-Tfh",
     ident.2 = c("CD4 GC-Tfh #1", "CD4 GC-Tfh #2"),
     min.pct = 0.3,
+    test.use = "LR",
+    latent.vars = "donorClean2",
     features = tsaCatalog[!tsaCatalog$isCtrl, "DNA_ID"],
     assay = "ADT")
   
@@ -547,14 +552,16 @@ deg_blimp1 <- FindMarkers(
   object = seuMerged,
   ident.1 = "CD4 PRDM1+ GC-Tfh",
   ident.2 = c("CD4 GC-Tfh #1", "CD4 GC-Tfh #2"),
+  test.use = "MAST",
+  latent.vars = c("donorClean2", "stage"),
   min.pct = 0.3,
   assay = "RNA")
 
- deg_blimp1G <- deg_blimp1 %>%
+deg_blimp1G <- deg_blimp1 %>%
   dplyr::mutate(gene = rownames(.)) %>%
-  dplyr::filter(p_val_adj < 0.05) %>%
+  dplyr::mutate(padj2 = p.adjust(p_val, method = "BH")) %>%
+  dplyr::filter(padj2 < 0.05) %>%
   dplyr::mutate(direction = ifelse(avg_log2FC > 0, "Up in\nPRDM1+ GC-Tfh", "Up in\nPRDM1- GC-TFh")) %>%
-  dplyr::filter(abs(avg_log2FC) > 0.3) %>%
   dplyr::group_by(direction) %>%
   dplyr::slice_max(abs(avg_log2FC), n = 10) %>%
   dplyr::arrange(desc(avg_log2FC)) %>%
@@ -569,7 +576,7 @@ deg_blimp1 <- FindMarkers(
   labs(x = "Average log2(FC)") +
   deLollipopTheme +
   theme(
-    plot.margin = margin(r = -80, l = -30, t = 0, b = 25)
+    plot.margin = margin(r = -50, l = -10, t = 5, b = 5)
   )
 
 ################################################################################
@@ -816,14 +823,12 @@ layout <- c(
 p <- atacFigA + theme(plot.margin = margin(t = 0, b = -90)) +
   patchwork::free(rnaFigB_mod, type = "panel", side = "lr") +
   patchwork::free(propClusterOnlyTfhG +
-      theme(plot.margin = margin(t = -15, l = 0, r = 15, b = -20)), type = "panel", side = "blr") +
+      theme(plot.margin = margin(t = -15, l = 0, r = 15, b = -20),
+        legend.box.margin = margin(b = 0, t = -20)), type = "panel", side = "blr") +
   patchwork::free(prdmByDonorG + theme(plot.margin = margin(t = 0)), type = "panel", side = "lr") +
-  patchwork::free(depletionDfG + theme(plot.margin = margin(t = 0)), type = "panel", side = "lr") +
-  patchwork::free(dea_blimp1G +
-      theme(
-        plot.margin = margin(t = 0),
-        plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "tlbr") +
-  patchwork::free(deg_blimp1G, type = "panel", side = "tlbr") + theme(plot.margin = margin(t = 15)) +
+  patchwork::free(depletionDfG + theme(plot.margin = margin(t = 0, r = 5)), type = "panel", side = "lr") +
+  patchwork::free(dea_blimp1G, type = "panel", side = "tb") +
+  patchwork::free(deg_blimp1G, type = "panel", side = "tb") +
   wrap_elements(full = rep_flow_gg + theme(plot.margin = margin(l = 0, r = 0, t = 10))) +
   free(organoid_g + 
       theme(
@@ -833,12 +838,12 @@ p <- atacFigA + theme(plot.margin = margin(t = 0, b = -90)) +
   free(organoid_g2 + 
       theme(
         plot.margin = margin(l = 0),
-        plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "t") +
+        plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "tl") +
   plot_annotation(tag_levels = "A") +
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig5_v3", prefixDir = "figures/outs",
+saveFinalFigure(plot = p, fn = "fig5_v4", prefixDir = "figures/outs",
   devices = c("png", "pdf"), gwidth = 8.5, gheight = 8,
   addTimestamp = TRUE)
 
@@ -855,7 +860,7 @@ supP <- patchwork::free(propClusterG + theme(plot.margin = margin(l = 5, r = 25)
   plotTagTheme
 
 saveFinalFigure(plot = supP,
-  fn = "supfig6_v3",
+  fn = "supfig6_v4",
   prefixDir = "figures/outs", devices = c("png", "pdf"),
   gwidth = 8, gheight = 8,
   addTimestamp = TRUE)
@@ -879,7 +884,7 @@ supP2 <- wrap_elements(full = gate_flow_gg + theme(plot.margin = margin(l = 0, r
   plotTagTheme
 
 saveFinalFigure(plot = supP2,
-  fn = "supfig7_v3",
+  fn = "supfig7_v4",
   prefixDir = "figures/outs", devices = c("png", "pdf"),
   gwidth = 8, gheight = 8,
   addTimestamp = TRUE)

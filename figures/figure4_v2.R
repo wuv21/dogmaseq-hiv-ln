@@ -45,7 +45,19 @@ uniq_deg_hivPosVsNeg <- FindAllMarkers(
   only.pos = TRUE
 )
 
-uniq_deg_hivPosVsNeg_filt <- uniq_deg_hivPosVsNeg %>%
+
+Idents(seuMerged_art) <- "manualAnnotBinWithHiv"
+uniq_deg_hivPosVsNeg_mast <- FindAllMarkers(
+  seuMerged_art,
+  group.by = "manualAnnotBinWithHiv",
+  min.pct = 0.3,
+  test.use = "MAST",
+  latent.vars = c("donorClean2"),
+  assay = "RNA",
+  only.pos = TRUE
+)
+
+uniq_deg_hivPosVsNeg_filt <- uniq_deg_hivPosVsNeg_mast %>%
   dplyr::filter(p_val_adj < 0.05) %>%
   dplyr::group_by(cluster) %>%
   dplyr::slice_max(avg_log2FC, n = 25)
@@ -251,55 +263,175 @@ celldeath_tests_compiled$p_val_adj2 <- p.adjust(celldeath_tests_compiled$p_val, 
 ################################################################################
 # deg
 ################################################################################
+# 
 Idents(seuMerged_art) <- "hivPos"
-all_deg <- FindMarkers(
+# for mast, we need to adjust based on how many genes were inputted into
+# mast, since not all genes were tested/used.
+# hypothesis is then testing on genes with min.pct = 0.3 and logfc.threshold = 0.2
+all_deg_mast <- FindMarkers(
   seuMerged_art,
   assay = "RNA",
   ident.1 = "HIV+",
   ident.2 = "HIV-",
-  logfc.threshold = 0.3,
+  logfc.threshold = 0.1,
+  test.use = "MAST",
+  latent.vars = c("donorClean2"),
   min.pct = 0.3)
 
-all_dea <- FindMarkers(
+# mast is not good for dea
+all_dea_lr <- FindMarkers(
   seuMerged_art,
   features = tsaCatalog[!tsaCatalog$isCtrl, "DNA_ID"],
   assay = "ADT",
   ident.1 = "HIV+",
   ident.2 = "HIV-",
+  test.use = "LR",
+  latent.vars = c("donorClean2"),
   min.pct = 0.3)
 
-tem_deg <- FindMarkers(
+tem_deg_mast <- FindMarkers(
   subset(seuMerged_art, subset = manualAnnotBin == "Tem/Th1"),
   assay = "RNA",
   ident.1 = "HIV+",
   ident.2 = "HIV-",
-  logfc.threshold = 0.3,
+  test.use = "MAST",
+  latent.vars = c("donorClean2"),
+  logfc.threshold = 0.1,
   min.pct = 0.3)
 
-tem_dea <- FindMarkers(
+tem_dea_lr <- FindMarkers(
   subset(seuMerged_art, subset = manualAnnotBin == "Tem/Th1"),
   features = tsaCatalog[!tsaCatalog$isCtrl, "DNA_ID"],
   assay = "ADT",
   ident.1 = "HIV+",
   ident.2 = "HIV-",
+  test.use = "LR",
+  latent.vars = c("donorClean2"),
   min.pct = 0.3)
 
-tcm_deg <- FindMarkers(
+tcm_deg_mast <- FindMarkers(
   subset(seuMerged_art, subset = manualAnnotBin == "Tcm/Th2"),
   assay = "RNA",
   ident.1 = "HIV+",
   ident.2 = "HIV-",
-  logfc.threshold = 0.3,
+  logfc.threshold = 0.1,
+  test.use = "MAST",
+  latent.vars = c("donorClean2"),
   min.pct = 0.3)
 
-tcm_dea <- FindMarkers(
+tcm_dea_lr <- FindMarkers(
   subset(seuMerged_art, subset = manualAnnotBin == "Tcm/Th2"),
   features = tsaCatalog[!tsaCatalog$isCtrl, "DNA_ID"],
   assay = "ADT",
   ident.1 = "HIV+",
   ident.2 = "HIV-",
+  test.use = "LR",
+  latent.vars = c("donorClean2"),
   min.pct = 0.3)
 
+# pseudobulk analysis
+# donorsOfInterest <- table(seuMerged_art$donorClean2, seuMerged_art$hivPos)
+# donorsOfInterest <- rownames(donorsOfInterest[donorsOfInterest[, "HIV+"] > 25, ])
+# 
+# pseudo_seuMerged_art_smol <- AggregateExpression(
+#   subset(seuMerged_art, subset = donorClean2 %in% donorsOfInterest),
+#   assays = "RNA",
+#   return.seurat = T,
+#   group.by = c("donorClean2", "hivPos"))
+# 
+# Idents(pseudo_seuMerged_art_smol) <- "hivPos"
+# pseudo_bulk_deg <- FindMarkers(
+#   object = pseudo_seuMerged_art_smol, 
+#   ident.1 = "HIV+", 
+#   ident.2 = "HIV-",
+#   test.use = "DESeq2")
+# 
+# pseudo_bulk_deg %>%
+#   filter(p_val_adj < 0.05 & avg_log2FC != 0)
+# 
+# 
+# # presto pseudobulking
+# smolSeurat <- subset(seuMerged_art, subset = donorClean2 %in% donorsOfInterest)
+#   
+# pseudo_presto <- presto::collapse_counts(
+#   counts = smolSeurat@assays$RNA$counts,
+#   meta_data = smolSeurat@meta.data,
+#   varnames = c("donorClean2", "hivPos")
+# )
+# 
+# pseudo_presto$meta_data$hivPos <- ifelse(pseudo_presto$meta_data$hivPos == "HIV+", "yes", "no")
+# 
+# dds <- DESeq2::DESeqDataSetFromMatrix(
+#   countData = pseudo_presto$counts_mat,
+#   colData = pseudo_presto$meta_data,
+#   design = ~ hivPos 
+# )
+# 
+# # Run standard DESeq2 analysis
+# dds <- DESeq2::DESeq(dds)
+# 
+# # Extract results for a specific comparison (e.g., Treatment vs Control)
+# res <- DESeq2::results(dds, contrast=c("hivPos", "yes", "no"))
+# 
+# 
+# as.data.frame(res) %>%
+#   filter(padj < 0.05) %>%
+#   mutate(piscore = log2FoldChange * -1 * log10(padj)) %>%
+#   dplyr::mutate(gene = rownames(.)) %>%
+#   dplyr::filter(!grepl(".\\d$", gene)) %>%
+#   dplyr::filter(log2FoldChange < 0)
+# 
+# seuMerged_art_flash <- FLASHMM::flashmm(
+#   Y = LayerData(seuMerged_art, assay = "RNA", layer = "data"),
+#   fixed = ~ 0 + manualAnnotBin + hivPos + manualAnnotBin:hivPos,
+#   random = ~ 0 + as.factor(donorClean2),
+#   metadata = seuMerged_art@meta.data,
+#   is.counts = FALSE
+# )
+# 
+# seuMerged_art_flash_v2 <- FLASHMM::flashmm(
+#   Y = LayerData(seuMerged_art, assay = "RNA", layer = "data"),
+#   fixed = ~ 0 + manualAnnotBin + manualAnnotBin:hivPos,
+#   random = ~ 0 + as.factor(donorClean2),
+#   metadata = seuMerged_art@meta.data,
+#   is.counts = FALSE
+# )
+# 
+# tmp <- extractDfFromFlashMM(
+#   x = seuMerged_art_flash,
+#   indexOfInterest = c("hivPosHIV+")
+# )
+# 
+# contrast <- cbind("PosvsNeg" = numeric(nrow(seuMerged_art_flash_v2$coef)))
+# index <- grep(":", rownames(seuMerged_art_flash_v2$coef))
+# contrast[index, ] <- 1/length(index)
+# length(index)
+# #> [1] 10
+# 
+# ##Test the contrast.
+# test <- FLASHMM::lmmtest(seuMerged_art_flash_v2, contrast = contrast, alternative = "two.sided")
+# test %>%
+#   as.data.frame(.) %>%
+#   mutate(gene = rownames(.)) %>%
+#   mutate(p_adj = p.adjust(PosvsNeg_p, method = "BH")) %>%
+#   dplyr::filter(!is.na(PosvsNeg_coef) & p_adj < 0.05) %>%
+#   dplyr::filter(PosvsNeg_coef < 0)
+# 
+# 
+# all_deg_flash <- extractDfFromFlashMM(
+#   x = seuMerged_art_flash,
+#   indexOfInterest = c("hivPosHIV+"),
+# )
+# 
+# temth1_flash <- extractDfFromFlashMM(
+#   x = seuMerged_art_flash,
+#   indexOfInterest = c("manualAnnotBinTem/Th1:hivPosHIV+"),
+# )
+# 
+# tcmth2_flash <- extractDfFromFlashMM(
+#   x = seuMerged_art_flash,
+#   indexOfInterest = c("manualAnnotBinTem/Th1:hivPosHIV+"),
+# )
 
 deLollipop_theme <- list(
   theme_classic(),
@@ -314,8 +446,9 @@ deLollipop_theme <- list(
     plot.title = element_text(size = BASEPTFONTSIZE, color = "#000000", hjust = 0.5)
   ))
 
+lollipop_point_size <- 0.75
 
-all_dea_plot <- all_dea %>%
+all_dea_plot <- all_dea_lr %>%
   as.data.frame() %>%
   mutate(DNA_ID = rownames(.)) %>%
   left_join(tsaCatalog[!tsaCatalog$isCtrl, c("DNA_ID", "cleanName")]) %>%
@@ -330,11 +463,11 @@ all_dea_plot <- all_dea %>%
   ggplot(aes(y = cleanName, x = avg_log2FC, color = direction)) +
   geom_vline(xintercept = 0) +
   geom_segment(aes(x = 0, xend = avg_log2FC), linetype = "dotted") +
-  geom_point(size = 0.75) +
+  geom_point(size = lollipop_point_size) +
   deLollipop_theme +
   labs(y = "Surface protein", title = "All cells\nSurface protein")
 
-all_deg_plot <- all_deg %>%
+all_deg_plot <- all_deg_mast %>%
   as.data.frame() %>%
   dplyr::mutate(gene = rownames(.)) %>%
   dplyr::mutate(p_val_adj2 = p.adjust(p_val, method = "BH")) %>%
@@ -348,16 +481,26 @@ all_deg_plot <- all_deg %>%
   ggplot(aes(y = gene, x = avg_log2FC, color = direction)) +
   geom_vline(xintercept = 0) +
   geom_segment(aes(x = 0, xend = avg_log2FC), linetype = "dotted") +
-  geom_point(size = 0.75) +
+  geom_point(size = lollipop_point_size) +
   deLollipop_theme +
   labs(y = "Gene", title = "All cells\nRNA")
 
-tem_deg_plot <- tem_deg %>%
+fill_sig_dict <- c(
+  "TRUE_TRUE" = "#ff0000",
+  "TRUE_FALSE" = "#ffffff",
+  "FALSE_TRUE" = "#807c7c",
+  "FALSE_FALSE" = "#ffffff")
+
+# showing genes that have raw p value < 0.05 but with open circles
+# for those have adjusted (BH) p value > 0.05
+tem_deg_plot <- tem_deg_mast %>%
   as.data.frame() %>%
   dplyr::mutate(gene = rownames(.)) %>%
   dplyr::mutate(p_val_adj2 = p.adjust(p_val, method = "BH")) %>%
-  dplyr::filter(p_val_adj2 < 0.05) %>%
+  dplyr::filter(p_val < 0.05) %>%
   dplyr::mutate(direction = avg_log2FC > 0) %>%
+  dplyr::mutate(sig = p_val_adj2 < 0.05) %>%
+  dplyr::mutate(directionSigFill = paste(direction, sig, sep = "_")) %>%
   dplyr::group_by(direction) %>%
   dplyr::slice_max(abs(avg_log2FC), n = 10) %>%
   dplyr::ungroup() %>%
@@ -366,17 +509,21 @@ tem_deg_plot <- tem_deg %>%
   ggplot(aes(y = gene, x = avg_log2FC, color = direction)) +
   geom_vline(xintercept = 0) +
   geom_segment(aes(x = 0, xend = avg_log2FC), linetype = "dotted") +
-  geom_point(size = 0.75) +
+  geom_point(aes(fill = directionSigFill), shape = 21, size = lollipop_point_size) +
+  geom_point(fill = "#ffffff00", shape = 21, size = lollipop_point_size) +
   deLollipop_theme +
+  scale_fill_manual(values = fill_sig_dict) +
   labs(y = "Gene", title = "Tem/Th1 cells\nRNA")
 
-tem_dea_plot <- tem_dea %>%
+tem_dea_plot <- tem_dea_lr %>%
   as.data.frame() %>%
   mutate(DNA_ID = rownames(.)) %>%
   left_join(tsaCatalog[!tsaCatalog$isCtrl, c("DNA_ID", "cleanName")]) %>%
-  mutate(p_val_adj2 = p.adjust(p_val, method = "BH")) %>%
-  filter(p_val_adj2 < 0.05) %>%
+  dplyr::mutate(p_val_adj2 = p.adjust(p_val, method = "BH")) %>%
+  dplyr::filter(p_val < 0.05) %>%
   dplyr::mutate(direction = avg_log2FC > 0) %>%
+  dplyr::mutate(sig = p_val_adj2 < 0.05) %>%
+  dplyr::mutate(directionSigFill = paste(direction, sig, sep = "_")) %>%
   dplyr::group_by(direction) %>%
   dplyr::slice_max(abs(avg_log2FC), n = 10) %>%
   dplyr::ungroup() %>%
@@ -385,16 +532,20 @@ tem_dea_plot <- tem_dea %>%
   ggplot(aes(y = cleanName, x = avg_log2FC, color = direction)) +
   geom_vline(xintercept = 0) +
   geom_segment(aes(x = 0, xend = avg_log2FC), linetype = "dotted") +
-  geom_point(size = 0.75) +
+  geom_point(aes(fill = directionSigFill), shape = 21, size = lollipop_point_size) +
+  geom_point(fill = "#ffffff00", shape = 21, size = lollipop_point_size) +
   deLollipop_theme +
+  scale_fill_manual(values = fill_sig_dict) +
   labs(y = "Surface protein", title = "Tem/Th1 cells\nSurface protein")
 
-tcm_deg_plot <- tcm_deg %>%
+tcm_deg_plot <- tcm_deg_mast %>%
   as.data.frame() %>%
   dplyr::mutate(gene = rownames(.)) %>%
   dplyr::mutate(p_val_adj2 = p.adjust(p_val, method = "BH")) %>%
-  dplyr::filter(p_val_adj2 < 0.05) %>%
+  dplyr::filter(p_val < 0.05) %>%
   dplyr::mutate(direction = avg_log2FC > 0) %>%
+  dplyr::mutate(sig = p_val_adj2 < 0.05) %>%
+  dplyr::mutate(directionSigFill = paste(direction, sig, sep = "_")) %>%
   dplyr::group_by(direction) %>%
   dplyr::slice_max(abs(avg_log2FC), n = 10) %>%
   dplyr::ungroup() %>%
@@ -403,17 +554,21 @@ tcm_deg_plot <- tcm_deg %>%
   ggplot(aes(y = gene, x = avg_log2FC, color = direction)) +
   geom_vline(xintercept = 0) +
   geom_segment(aes(x = 0, xend = avg_log2FC), linetype = "dotted") +
-  geom_point(size = 0.75) +
+  geom_point(aes(fill = directionSigFill), shape = 21, size = lollipop_point_size) +
+  geom_point(fill = "#ffffff00", shape = 21, size = lollipop_point_size) +
   deLollipop_theme +
+  scale_fill_manual(values = fill_sig_dict) +
   labs(y = "Gene", title = "Tcm/Th2 cells\nRNA")
 
-tcm_dea_plot <- tcm_dea %>%
+tcm_dea_plot <- tcm_dea_lr %>%
   as.data.frame() %>%
   mutate(DNA_ID = rownames(.)) %>%
   left_join(tsaCatalog[!tsaCatalog$isCtrl, c("DNA_ID", "cleanName")]) %>%
-  mutate(p_val_adj2 = p.adjust(p_val, method = "BH")) %>%
-  filter(p_val_adj2 < 0.05) %>%
+  dplyr::mutate(p_val_adj2 = p.adjust(p_val, method = "BH")) %>%
+  dplyr::filter(p_val < 0.05) %>%
+  dplyr::mutate(sig = p_val_adj2 < 0.05) %>%
   dplyr::mutate(direction = avg_log2FC > 0) %>%
+  dplyr::mutate(directionSigFill = paste(direction, sig, sep = "_")) %>%
   dplyr::group_by(direction) %>%
   dplyr::slice_max(abs(avg_log2FC), n = 10) %>%
   dplyr::ungroup() %>%
@@ -422,8 +577,10 @@ tcm_dea_plot <- tcm_dea %>%
   ggplot(aes(y = cleanName, x = avg_log2FC, color = direction)) +
   geom_vline(xintercept = 0) +
   geom_segment(aes(x = 0, xend = avg_log2FC), linetype = "dotted") +
-  geom_point(size = 0.75) +
+  geom_point(aes(fill = directionSigFill), shape = 21, size = lollipop_point_size) +
+  geom_point(fill = "#ffffff00", shape = 21, size = lollipop_point_size) +
   deLollipop_theme +
+  scale_fill_manual(values = fill_sig_dict) +
   labs(y = "Surface protein", title = "Tcm/Th2 cells\nSurface protein")
 
 ################################################################################
@@ -587,39 +744,32 @@ p <- wrap_elements(
     merge_legend = TRUE,
     padding = unit(c(5, 5, 5, 5), "points")))
   ) +
-  
   free(figB_mod + theme(
     plot.tag = element_text(margin = margin(l= -15, t = 5)),
     plot.margin = margin(l = 0, r = 20, b = -40)), type = "panel", side = "r") +
-  
   free(all_deg_plot + theme(
     plot.tag = element_text(margin = margin(l = -15, t = 20)),
     plot.margin = margin(l = 10, r = 35)), type = "space", side = "tlr") +
   free(all_dea_plot + theme(
     plot.tag = element_text(margin = margin(l = -45, t = 20)),
     plot.margin = margin(l = 15, r = 20)), type = "space", side = "tlr") +
-  
   free(tem_deg_plot + theme(
     plot.tag = element_text(margin = margin(l = -15, t = 20)),
-    plot.margin = margin(l = 10, r = 35)), type = "space", side = "lr") +
+    plot.margin = margin(l = 10, r = 35, t = -18)), type = "space", side = "tlr") +
   free(tem_dea_plot + theme(
     plot.tag = element_text(margin = margin(l = -45, t = 20)),
-    plot.margin = margin(l = 15, r = 20)), type = "space", side = "lr") +
-  
-  
+    plot.margin = margin(l = 15, r = 20, t = -18)), type = "space", side = "tlr") +
   free(tcm_deg_plot + theme(
     plot.tag = element_text(margin = margin(l = -15, t = 20)),
-    plot.margin = margin(l = 10, r = 35)), type = "space", side = "lr") +
+    plot.margin = margin(l = 10, r = 35, t = -18)), type = "space", side = "tlr") +
   free(tcm_dea_plot + theme(
     plot.tag = element_text(margin = margin(l = -45, t = 20)),
-    plot.margin = margin(l = 15, r = 20)), type = "space", side = "lr") +
-  
-  
+    plot.margin = margin(l = 15, r = 20, t = -18)), type = "space", side = "tlr") +
   plot_annotation(tag_levels = "A") +
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig4_v2", prefixDir = "figures/outs", devices = c("png", "pdf"), addTimestamp = TRUE, gwidth = 7, gheight = 9)
+saveFinalFigure(plot = p, fn = "fig4_v3", prefixDir = "figures/outs", devices = c("png", "pdf"), addTimestamp = TRUE, gwidth = 7, gheight = 9)
 
 
 sup_layout <- c(
@@ -638,7 +788,7 @@ sup_p <-
 
 saveFinalFigure(
   plot = sup_p,
-  fn = "supfig5_v1",
+  fn = "supfig5_v2",
   prefixDir = "figures/outs",
   devices = c("png", "pdf"),
   addTimestamp = TRUE,

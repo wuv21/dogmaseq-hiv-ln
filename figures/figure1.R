@@ -155,13 +155,44 @@ figDData <- umapDf %>%
 
 figDStats <- ggpubr::compare_means(percentOfDonor ~ stage, data = figDData, group.by = c("manualAnnot"), test.method = "BH")
 
+figDFC <- figDData %>%
+  dplyr::group_by(stage, manualAnnot) %>%
+  dplyr::summarize(meanVal = mean(percentOfDonor)) %>%
+  tidyr::pivot_wider(names_from = stage, values_from = meanVal) %>%
+  dplyr::mutate(
+    "U/C" = `HIV-` / Viremic,
+    "U/A" = `HIV-` / ART,
+    "C/A" = Viremic / ART
+  ) %>%
+  tidyr::pivot_longer(cols = any_of(contains("/")), names_to = "condition", values_to = "fc")
+
+figDStats <- figDStats %>%
+  dplyr::mutate(p.signif = pValSymnum(p.adj, showNs = FALSE)) %>%
+  dplyr::mutate(condition = case_when(
+    group1 == "HIV-" & group2 == "Viremic" ~ "U/C",
+    group1 == "HIV-" & group2 == "ART" ~ "U/A",
+    group1 == "Viremic" & group2 == "ART" ~ "C/A",
+  ))
+
+figDFC <- figDFC %>%
+  dplyr::left_join(figDStats, by = c("manualAnnot", "condition")) %>%
+  dplyr::mutate(p.signif = ifelse(p.adj >= 0.05 & p.adj < 0.1, p.adj, p.signif)) %>%
+  dplyr::mutate(condition = stringr::str_wrap(condition, width = 8)) %>%
+  dplyr::mutate(condition = factor(condition, levels = c("U/C", "U/A", "C/A")))
+
+abbrevForFig <- c(
+  "HIV-" = "HIV- (U)",
+  "Viremic" = "Viremic (C)",
+  "ART" = "ART (A)"
+)
+
 figD <- figDData %>%
   ggplot(aes(x = percentOfDonor, y = manualAnnot)) +
   geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_boxplot(alpha = 1, outliers = FALSE, width = 0.5) +
   geom_point(aes(fill = stage, shape = tissue), color = "#000000", alpha = 0.5, stroke = 0.5, size = 1.2) +
-  facet_wrap(~ stage, nrow = 1) +
+  facet_wrap(~ stage, nrow = 1, labeller = as_labeller(abbrevForFig)) +
   scale_fill_manual(values = COLORS$stage) +
   scale_shape_manual(values = c("CLN" = 21, "ILN" = 24)) +
   theme_classic() +
@@ -176,13 +207,44 @@ figD <- figDData %>%
     panel.grid.major.x = element_blank(),
     plot.margin = margin(t = 30,0,0,0),
     panel.grid.major.y = element_line(color = "#dddddd50"),
-    plot.background = element_rect(color = "#ffffff00", fill = "#ffffff00"),
+    plot.background = element_rect(color = "#ffffff00", fill = NA),
     panel.background = element_rect(color = "#ffffff00", fill = "#ffffff00"),
     panel.grid.minor.x = element_blank()
   ) +
   scale_y_discrete(limits = rev) +
   labs(
     x = "% of each donor's cells")
+
+figDStatPanel <- ggplot(figDFC, aes(x = condition, y = manualAnnot)) +
+  geom_tile(aes(fill = log2(fc))) +
+  geom_text(aes(label = p.signif), vjust = 0.5, size = 1.2) +
+  scale_fill_gradient2(
+    low = "#40004BFF",
+    mid = "#ffffff",
+    high = "#00441BFF",
+    midpoint = 0,
+    guide = guide_colorbar(barwidth = 0.5, title.position = "right")) +
+  theme_classic() +
+  scale_x_discrete(position = "bottom") +
+  theme(
+    axis.line.x = element_blank(),
+    axis.text = element_text(color = "#000000", size = BASEPTFONTSIZE),
+    axis.title.y = element_blank(),
+    axis.title.x = element_text(color = "#000000", size = BASEPTFONTSIZE),
+    legend.position = "right",
+    legend.title = element_text(color = "#000000", size = BASEPTFONTSIZE, angle = -90, vjust = 0.5, hjust = 0.5),
+    legend.box.margin = margin(b = 0, l = 0),
+    legend.margin = margin(b = 0, l = 0),
+    panel.grid.major.x = element_blank(),
+    plot.margin = margin(t = 30,0,0,0),
+    panel.grid.major.y = element_blank(),
+    plot.background = element_rect(color = "#ffffff00", fill = NA),
+    panel.background = element_rect(color = "#ffffff00", fill = "#ffffff00"),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_blank(),
+  ) +
+  scale_y_discrete(limits = rev) +
+  labs(x = "Stage comparison", fill = "log2(fold change)")
 
 
 ################################################################################
@@ -271,6 +333,46 @@ atacImputePlot_v3 <- atacImputedDf_v3 %>%
   labs(
     y = "imputed log2(counts + 1)")
 
+################################################################################
+# sup table of ipda
+################################################################################
+# ipda values are per million cells
+
+ipdaFlow <- read.csv("external_data/ipda_flow_combined_2024-11-22.csv", check.names = FALSE) %>%
+  select(Sample, `Intact`, `3' Defective`, `5' Defective`,`Total Proviruses Detected`)
+
+supTableX <- data.frame(
+  donor = projUnhashedClean$donorClean2,
+  hivStatus = projUnhashedClean$hivStatus,
+  manualAnnot = projUnhashedClean$manualAnnot,
+  stage = projUnhashedClean$stage
+) %>%
+  dplyr::mutate(stage = factor(stage, levels = c("HIV-", "Viremic", "ART"))) %>%
+  dplyr::group_by(donor, stage) %>%
+  dplyr::summarize(
+    `Total cells` = n(),
+    `HIV DNA+/- RNA+` = sum(hivStatus == "HIV DNA+/- RNA+"),
+    `HIV-` = sum(hivStatus == "HIV-"),
+    `HIV DNA+ RNA-` = sum(hivStatus == "HIV DNA+ RNA-")
+  ) %>%
+  dplyr::left_join(ipdaFlow, by = c("donor" = "Sample")) %>%
+  dplyr::mutate(
+    `HIV+` = `HIV DNA+/- RNA+` + `HIV DNA+ RNA-`,
+    `HIV+ (% of non-naive CD8- T cells)` = round(`HIV+` / `Total cells` * 100, 4),
+    `Intact\n(% of total CD4+ T cells)` = round(`Intact` / 1e6 * 100, 4),
+    `Total Proviruses Detected \n(% of total CD4+ T cells)` = round(`Total Proviruses Detected` / 1e6 * 100, 4),
+  ) %>%
+  dplyr::select(
+    `donor`,
+    `Total cells`,
+    `stage`,
+    `HIV-`,
+    `HIV DNA+/- RNA+`,
+    `HIV DNA+ RNA-`,`HIV+`,
+    `HIV+ (% of non-naive CD8- T cells)`,
+    `Intact\n(% of total CD4+ T cells)`,
+    `Total Proviruses Detected \n(% of total CD4+ T cells)`) 
+
 
 ################################################################################
 # final plot saving
@@ -286,12 +388,15 @@ layout <- c(
 p <- wrap_elements(full = figABC, ignore_tag = TRUE) +
   wrap_elements(panel = figABLegend, ignore_tag = TRUE, clip = FALSE) +
   wrap_elements(panel = c_legend, ignore_tag = TRUE, clip = FALSE) +
-  wrap_elements(full = figD) + theme(plot.tag = element_text(margin = margin(t = 30))) +
+  wrap_elements(full = figD + figDStatPanel + plot_layout(widths = c(0.85, 0.15)) & 
+      theme(plot.background = element_rect(fill = "#ffffff00", color = "#ffffff00"))) + 
+  theme(
+    plot.tag = element_text(margin = margin(t = 30))) +
   plot_annotation(tag_levels = list(c("D"))) +
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig1_v2", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 7, gheight = 7, addTimestamp = TRUE)
+saveFinalFigure(plot = p, fn = "fig1_v3", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 7, gheight = 7, addTimestamp = TRUE)
 
 
 supLayout <- c(
@@ -305,4 +410,4 @@ supP <- free(rnaBasePlot, type = "panel", side = "lr") +
   plot_layout(design = supLayout) &
   plotTagTheme
 
-saveFinalFigure(plot = supP, fn = "supfig2_v2", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 8, gheight = 10, addTimestamp = TRUE)
+saveFinalFigure(plot = supP, fn = "supfig2_v2", prefixDir = "figures/outs", devices = c("png"), gwidth = 8, gheight = 10, addTimestamp = TRUE)

@@ -104,6 +104,7 @@ figB <- plotUpsetHivStats(
   rnaCbc = hivStats[hivStats$hivRNA, "cellName"], 
   dnaCbc = hivStats[hivStats$hivDNA, "cellName"],
   groupingVector = statGroupingDict,
+  barTextSize = BASEFONTSIZE - 0.4,
   returnPlot = TRUE,
   gheight = 4) + plot_layout(heights = c(6, 1))
 
@@ -194,10 +195,17 @@ figCData <- data.frame(
   dplyr::tally(name = "nCells") %>%
   dplyr::group_by(stage) %>%
   dplyr::mutate(percentStage = nCells / sum(nCells) * 100) %>%
-  dplyr::mutate(percentStageLabel = paste0(round(percentStage, digits = 2), "%")) %>%
+  dplyr::mutate(percentStageLabel = glue("{round(percentStage, digits = 2)}% ({nCells})")) %>%
   dplyr::arrange(desc(percentStage), .by_group = TRUE) %>%
   dplyr::mutate(cluster = factor(cluster, levels = unique(cluster)))
   
+figCSums <- figCData %>%
+  dplyr::summarize(cellsInStage = sum(nCells)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(stageLabel = glue("{stage} (n={cellsInStage})"))
+
+figCSumDict <- figCSums$stageLabel
+names(figCSumDict) <- figCSums$stage
 
 fig2LollipopTheme <- list(
   geom_vline(xintercept = 0, linewidth = BASELINEWIDTHSIZE, color = "#000000"),
@@ -221,10 +229,10 @@ figDnaLol <- ggplot(figCData, aes(x = percentStage, y = cluster, color = stage))
   fig2LollipopTheme +
   geom_linerange(aes(xmin = 0, xmax = percentStage), linetype = "dotted") +
   geom_point() +
-  geom_text(aes(label = percentStageLabel, x = percentStage + 1), hjust = 0, size = BASEFONTSIZE) +
-  facet_wrap(~ stage) +
+  geom_text(aes(label = percentStageLabel, x = percentStage), hjust = -0.1, size = BASEFONTSIZE) +
+  facet_wrap(~ stage, labeller = as_labeller(figCSumDict)) +
   coord_cartesian(clip = "off") +
-  scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.2))) +
+  scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.4))) +
   scale_color_manual(values = COLORS$stage) +
   labs(x = "% of HIV DNA+ RNA- cells per stage")
 
@@ -241,18 +249,26 @@ figDData <- data.frame(
   dplyr::tally(name = "nCells") %>%
   dplyr::group_by(stage) %>%
   dplyr::mutate(percentStage = nCells / sum(nCells) * 100) %>%
-  dplyr::mutate(percentStageLabel = paste0(round(percentStage, digits = 2), "%")) %>%
+  dplyr::mutate(percentStageLabel = glue("{round(percentStage, digits = 2)}% ({nCells})")) %>%
   dplyr::arrange(desc(percentStage), .by_group = TRUE)
+
+figDSums <- figDData %>%
+  dplyr::summarize(cellsInStage = sum(nCells)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(stageLabel = glue("{stage} (n={cellsInStage})"))
+
+figDSumDict <- figDSums$stageLabel
+names(figDSumDict) <- figDSums$stage
 
 figRnaLol <- ggplot(figDData, aes(x = percentStage, y = cluster, color = stage)) +
   theme_classic() +
   fig2LollipopTheme +
   geom_linerange(aes(xmin = 0, xmax = percentStage), linetype = "dotted") +
   geom_point() +
-  geom_text(aes(label = percentStageLabel, x = percentStage + 1), hjust = 0, size = BASEFONTSIZE) +
-  facet_wrap(~ stage) +
+  geom_text(aes(label = percentStageLabel, x = percentStage), hjust = -0.1, size = BASEFONTSIZE) +
+  facet_wrap(~ stage, labeller = as_labeller(figDSumDict)) +
   coord_cartesian(clip = "off") +
-  scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.2))) +
+  scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.4))) +
   scale_color_manual(values = COLORS$stage) +
   labs(x = "% of HIV DNA+/- RNA+ cells per stage")
 
@@ -662,7 +678,7 @@ p <- wrap_elements(full = figA) +
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig2_v2", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 8.5, gheight = 10, addTimestamp = TRUE)
+saveFinalFigure(plot = p, fn = "fig2_v3", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 8.5, gheight = 10, addTimestamp = TRUE)
 
 
 supLayout <- c(
