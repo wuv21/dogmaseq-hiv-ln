@@ -220,7 +220,7 @@ supFigA_mod <- supFigA$data %>%
       type = "bracket",
       angle = 0,
       levels_text = list(
-        NULL,
+        element_text(face = "italic", color = "#000000", size = 8),
         element_text(angle = 90, hjust = 0.5, vjust = 0.5, color = "#000000", size = 8)))) +
   scale_color_distiller(palette = "PuRd", direction = 1) +
   theme_classic() +
@@ -328,110 +328,6 @@ tcm_dea_lr <- FindMarkers(
   test.use = "LR",
   latent.vars = c("donorClean2"),
   min.pct = 0.3)
-
-# pseudobulk analysis
-# donorsOfInterest <- table(seuMerged_art$donorClean2, seuMerged_art$hivPos)
-# donorsOfInterest <- rownames(donorsOfInterest[donorsOfInterest[, "HIV+"] > 25, ])
-# 
-# pseudo_seuMerged_art_smol <- AggregateExpression(
-#   subset(seuMerged_art, subset = donorClean2 %in% donorsOfInterest),
-#   assays = "RNA",
-#   return.seurat = T,
-#   group.by = c("donorClean2", "hivPos"))
-# 
-# Idents(pseudo_seuMerged_art_smol) <- "hivPos"
-# pseudo_bulk_deg <- FindMarkers(
-#   object = pseudo_seuMerged_art_smol, 
-#   ident.1 = "HIV+", 
-#   ident.2 = "HIV-",
-#   test.use = "DESeq2")
-# 
-# pseudo_bulk_deg %>%
-#   filter(p_val_adj < 0.05 & avg_log2FC != 0)
-# 
-# 
-# # presto pseudobulking
-# smolSeurat <- subset(seuMerged_art, subset = donorClean2 %in% donorsOfInterest)
-#   
-# pseudo_presto <- presto::collapse_counts(
-#   counts = smolSeurat@assays$RNA$counts,
-#   meta_data = smolSeurat@meta.data,
-#   varnames = c("donorClean2", "hivPos")
-# )
-# 
-# pseudo_presto$meta_data$hivPos <- ifelse(pseudo_presto$meta_data$hivPos == "HIV+", "yes", "no")
-# 
-# dds <- DESeq2::DESeqDataSetFromMatrix(
-#   countData = pseudo_presto$counts_mat,
-#   colData = pseudo_presto$meta_data,
-#   design = ~ hivPos 
-# )
-# 
-# # Run standard DESeq2 analysis
-# dds <- DESeq2::DESeq(dds)
-# 
-# # Extract results for a specific comparison (e.g., Treatment vs Control)
-# res <- DESeq2::results(dds, contrast=c("hivPos", "yes", "no"))
-# 
-# 
-# as.data.frame(res) %>%
-#   filter(padj < 0.05) %>%
-#   mutate(piscore = log2FoldChange * -1 * log10(padj)) %>%
-#   dplyr::mutate(gene = rownames(.)) %>%
-#   dplyr::filter(!grepl(".\\d$", gene)) %>%
-#   dplyr::filter(log2FoldChange < 0)
-# 
-# seuMerged_art_flash <- FLASHMM::flashmm(
-#   Y = LayerData(seuMerged_art, assay = "RNA", layer = "data"),
-#   fixed = ~ 0 + manualAnnotBin + hivPos + manualAnnotBin:hivPos,
-#   random = ~ 0 + as.factor(donorClean2),
-#   metadata = seuMerged_art@meta.data,
-#   is.counts = FALSE
-# )
-# 
-# seuMerged_art_flash_v2 <- FLASHMM::flashmm(
-#   Y = LayerData(seuMerged_art, assay = "RNA", layer = "data"),
-#   fixed = ~ 0 + manualAnnotBin + manualAnnotBin:hivPos,
-#   random = ~ 0 + as.factor(donorClean2),
-#   metadata = seuMerged_art@meta.data,
-#   is.counts = FALSE
-# )
-# 
-# tmp <- extractDfFromFlashMM(
-#   x = seuMerged_art_flash,
-#   indexOfInterest = c("hivPosHIV+")
-# )
-# 
-# contrast <- cbind("PosvsNeg" = numeric(nrow(seuMerged_art_flash_v2$coef)))
-# index <- grep(":", rownames(seuMerged_art_flash_v2$coef))
-# contrast[index, ] <- 1/length(index)
-# length(index)
-# #> [1] 10
-# 
-# ##Test the contrast.
-# test <- FLASHMM::lmmtest(seuMerged_art_flash_v2, contrast = contrast, alternative = "two.sided")
-# test %>%
-#   as.data.frame(.) %>%
-#   mutate(gene = rownames(.)) %>%
-#   mutate(p_adj = p.adjust(PosvsNeg_p, method = "BH")) %>%
-#   dplyr::filter(!is.na(PosvsNeg_coef) & p_adj < 0.05) %>%
-#   dplyr::filter(PosvsNeg_coef < 0)
-# 
-# 
-# all_deg_flash <- extractDfFromFlashMM(
-#   x = seuMerged_art_flash,
-#   indexOfInterest = c("hivPosHIV+"),
-# )
-# 
-# temth1_flash <- extractDfFromFlashMM(
-#   x = seuMerged_art_flash,
-#   indexOfInterest = c("manualAnnotBinTem/Th1:hivPosHIV+"),
-# )
-# 
-# tcmth2_flash <- extractDfFromFlashMM(
-#   x = seuMerged_art_flash,
-#   indexOfInterest = c("manualAnnotBinTem/Th1:hivPosHIV+"),
-# )
 
 deLollipop_theme <- list(
   theme_classic(),
@@ -769,7 +665,15 @@ p <- wrap_elements(
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig4_v3", prefixDir = "figures/outs", devices = c("png", "pdf"), addTimestamp = TRUE, gwidth = 7, gheight = 9)
+saveFinalFigure(
+  plot = p,
+  fn = "fig4_v4",
+  prefixDir = "figures/outs",
+  devices = c("png", "pdf"),
+  addTimestamp = TRUE,
+  units = "cm",
+  gwidth = 7 * 2.54,
+  gheight = JCI_MAX_HEIGHT)
 
 
 sup_layout <- c(
@@ -788,7 +692,7 @@ sup_p <-
 
 saveFinalFigure(
   plot = sup_p,
-  fn = "supfig5_v2",
+  fn = "supfig5_v3",
   prefixDir = "figures/outs",
   devices = c("png", "pdf"),
   addTimestamp = TRUE,

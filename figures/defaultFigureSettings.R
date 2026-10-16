@@ -13,6 +13,9 @@ BASEPTFONTSIZE <- 8
 BASEFONTSIZE <- BASEPTFONTSIZE / ggplot2:::.pt
 BASELINEWIDTHSIZE <- 12/14
 
+JCI_MAX_WIDTH <- 17.88
+JCI_MAX_HEIGHT <- 23.88
+
 
 plotTagTheme <- theme(
   plot.tag = element_text(size = 10, face = "plain", family = "sans"))
@@ -80,12 +83,13 @@ mean_se_onlyPosVertical <- function(x, mult = 1) {
 
 saveFinalFigure <- function(
   plot,
-  prefixDir = "../outs",
+  gheight,
+  gwidth,
   fn,
+  prefixDir = "../outs",
   devices = c("png", "pdf", "pdf_base", "Cairo"),
   addTimestamp = FALSE,
-  gheight,
-  gwidth
+  units = "in"
 ) {
   
   if (!is.vector(devices)) {
@@ -116,15 +120,15 @@ saveFinalFigure <- function(
     if (d == "rds") {
       saveRDS(plot, gfn)
     } else if (d == "pdf") {
-      ggsave(gfn, plot = plot, dpi = "retina", device = cairo_pdf, width = gwidth, height = gheight, units = "in")
+      ggsave(gfn, plot = plot, dpi = "retina", device = cairo_pdf, width = gwidth, height = gheight, units = units)
     } else if (d == "pdf_base") {
-      ggsave(gfn, plot = plot, dpi = "retina", device = "pdf", width = gwidth, height = gheight, units = "in")
+      ggsave(gfn, plot = plot, dpi = "retina", device = "pdf", width = gwidth, height = gheight, units = units)
     } else if (d == "Cairo") {
-      CairoPDF(width=gwidth, height=gheight, file=gfn, family="sans")
+      CairoPDF(width=gwidth, height=gheight, file=gfn, family="sans", units = units)
       print(plot)
       dev.off()
     } else {
-      ggsave(gfn, plot = plot, dpi = "retina", device = d, width = gwidth, height = gheight, units = "in")  
+      ggsave(gfn, plot = plot, dpi = "retina", device = d, width = gwidth, height = gheight, units = units)  
     }
   }
 }

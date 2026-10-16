@@ -265,7 +265,7 @@ rnaBasePlot <- DotPlot(
   scale_y_discrete(limits = uniqAnnots) +
   scale_x_discrete(labels = ~ gsub("rna_", "", .x)) +
   theme(
-    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = BASEPTFONTSIZE - 2, color = "#000000"),
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = BASEPTFONTSIZE - 2, color = "#000000", face = "italic"),
     axis.text.y = element_text(size = BASEPTFONTSIZE - 3, color = "#000000"),
     panel.grid.major.y = element_line(color = "#efefef"),
     axis.title = element_blank(),
@@ -323,7 +323,7 @@ atacImputePlot_v3 <- atacImputedDf_v3 %>%
   theme(
     axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = BASEPTFONTSIZE - 2.5, color = "#000000"),
     axis.text.y = element_text(size = BASEPTFONTSIZE - 2.5, color = "#000000"),
-    strip.text = element_text(size = BASEPTFONTSIZE - 1, color = "#000000"),
+    strip.text = element_text(size = BASEPTFONTSIZE - 1, color = "#000000", face = "italic"),
     plot.margin = margin(l = 18),
     strip.background = element_rect(color = "#00000000", fill = "#00000000"),
     legend.position = "blank",
@@ -396,7 +396,15 @@ p <- wrap_elements(full = figABC, ignore_tag = TRUE) +
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig1_v3", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 7, gheight = 7, addTimestamp = TRUE)
+saveFinalFigure(
+  plot = p,
+  fn = "fig1_v4",
+  prefixDir = "figures/outs",
+  devices = c("png", "pdf"),
+  gwidth = 7 * 2.54,
+  gheight = 7 * 2.54,
+  units = "cm",
+  addTimestamp = TRUE)
 
 
 supLayout <- c(
@@ -410,4 +418,11 @@ supP <- free(rnaBasePlot, type = "panel", side = "lr") +
   plot_layout(design = supLayout) &
   plotTagTheme
 
-saveFinalFigure(plot = supP, fn = "supfig2_v2", prefixDir = "figures/outs", devices = c("png"), gwidth = 8, gheight = 10, addTimestamp = TRUE)
+saveFinalFigure(
+  plot = supP,
+  fn = "supfig2_v4",
+  prefixDir = "figures/outs",
+  devices = c("png"),
+  gwidth = 8,
+  gheight = 10,
+  addTimestamp = TRUE)

@@ -28,6 +28,26 @@ uniqStages <- c("Viremic", "ART")
 uniqInfection <- names(COLORS$hivStatus)
 
 
+## murad analysis
+#BTN3A1, #BTN2A1
+#
+
+
+seuMerged_hivneg <- subset(seuMerged, subset = stage == "HIV-")
+VlnPlot(seuMerged_hivneg, features = c("BTN3A1", "BTN2A1"), group.by = "manualAnnot", pt.size = 0.6, alpha = 0.5)
+
+
+seuMerged_chronic <- subset(seuMerged, subset = stage == "Viremic")
+seuMerged_chronic$manualAnnot
+VlnPlot(seuMerged_chronic, features = c("BTN3A1", "BTN2A1"), group.by = "manualAnnot", pt.size = 0.6, alpha = 0.5)
+VlnPlot(seuMerged_chronic, features = c("BTN3A1", "BTN2A1"), group.by = "hivStatus", pt.size = 0.2, alpha = 0.5)
+
+VlnPlot(seuMerged, features = c("BTN3A1", "BTN2A1"), group.by = "manualAnnotBin", pt.size = 0.2, alpha = 0.3, split.by = 'stage')
+
+DotPlot(seuMerged_chronic, features = c("BTN3A1", "BTN2A1"))
+
+
+
 ################################################################################
 # epigenetic analysis
 ################################################################################
@@ -85,6 +105,7 @@ tmp <- ComplexHeatmap::Heatmap(
   show_heatmap_legend = TRUE,
   column_dend_side = "top",
   column_title = NULL,
+  heatmap_width = unit(JCI_MAX_WIDTH * 3.85/14, "cm"),
   row_title_gp = gpar(fontsize = 6),
   layer_fun = function(j, i, x, y, w, h, col) { # add text to each grid
     grid.text(pindex(chronic_markerTest_deviations_heatmapSig, i, j), x, y,
@@ -98,7 +119,6 @@ tmp <- ComplexHeatmap::Heatmap(
   show_column_dend = TRUE,
   row_km = 12,
   row_km_repeats = 100,
-  # row_labels = as.character(c(1:194)),
   show_row_names = TRUE,
   row_names_gp = gpar(fontsize = 6),
   top_annotation = ComplexHeatmap::HeatmapAnnotation(
@@ -117,37 +137,18 @@ tmp <- ComplexHeatmap::Heatmap(
       labels = unique(str_split_fixed(colnames(chronic_markerTest_deviations_heatmap), "_", n = 2)[, 1]),
       labels_gp = gpar(col = "#000000", fontsize = BASEPTFONTSIZE - 2),
       show_name = TRUE),
-    # `Phenotype` = str_split_fixed(colnames(chronic_markerTest_deviations_heatmap), "_", n = 2)[, 1],
     `HIV` = str_split_fixed(colnames(chronic_markerTest_deviations_heatmap), "_", n = 2)[, 2],
     col = list(
-      # `Phenotype` = c("Tcm/Th2" = "#a6611a", "Tem/Th1" = "#dfc27d", "Tfh" = "#80cdc1", "Treg" = "#018571"),
       `HIV` = COLORS$hivStatus
     ),
     annotation_legend_param = list(
+      `HIV` = list(title = NULL),
       labels_gp = gpar(fontsize = 8),
       title_gp = gpar(fontsize = 8)
     ),
     annotation_name_gp = gpar(fontsize = 8),
     simple_anno_size = unit(0.3, "cm")
   )
-  # right_annotation = rowAnnotation(
-  #   # ind = anno_text(
-  #   #   x = c(1:nrow(chronic_markerTest_deviations_heatmap)),
-  #   #   rot = 0,
-  #   #   gp = gpar(fontsize = 5, fontfamily = "mono")),
-  #   foo = anno_block(gp = gpar(fill = "#000000"), width = unit(12/14, "pt")),
-  #   bar = anno_block(
-  #     graphics = function(index, levels) {
-  #       lbls <- rownames(chronic_markerTest_deviations_heatmap)[index]
-  #       lbls <- gsub("_\\d+", "", lbls)
-  #       lbls <- str_wrap(paste(lbls, collapse = " "), width = 40)
-  # 
-  #       grid.rect(gp = gpar(fill = NA, col = NA))
-  #       txt = paste(lbls, collapse = ",")
-  #       grid.text(txt, 0.01, 0.5, rot = 0, hjust = 0, gp = gpar(fontsize = 6))
-  #     },
-  #     width = unit(6, "cm"))
-  # )
 )
 
 set.seed(42)
@@ -170,7 +171,7 @@ rightAnnot <- rowAnnotation(
       lbls <- gsub("_\\d+", "", lbls)
       nums <- new_row_numbers[index]
       
-      lbls <- str_wrap(paste(paste0(nums, ": ", lbls), collapse = ", "), width = 40)
+      lbls <- str_wrap(paste(paste0(nums, ": ", lbls), collapse = ", "), width = 30)
       
       print("lbls")
       print(lbls)
@@ -398,6 +399,7 @@ all_deg_plot <- all_deg_mast %>%
   geom_segment(aes(x = 0, xend = avg_log2FC), linetype = "dotted") +
   geom_point(size = 0.75) +
   deLollipop_theme +
+  theme(axis.text.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", face = "italic")) +
   labs(y = "Gene", title = "All cells\nRNA")
 
 
@@ -431,12 +433,16 @@ ccpos_plot_final <- ccpos_plot +
   theme_classic() +
   geom_line(aes(x = 0, y = 0, linetype = "All cells", color = "All cells"),
     show.legend = TRUE, inherit.aes = FALSE) +
-  guides(color = guide_legend(override.aes = list(linewidth = 2))) +
+  guides(
+    color = guide_legend(override.aes = list(linewidth = 2), ncol = 1, byrow = TRUE),
+    linetype = guide_legend(override.aes = list(linewidth = 0.5), ncol = 1, byrow = TRUE)) +
   theme(
     legend.position = "bottom",
+    legend.direction = "vertical",
     legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000", hjust = 0),
     legend.margin = margin(t = -10),
-    legend.spacing.x = unit(BASEPTFONTSIZE, "pt"),
+    legend.key.spacing.y = unit(-6, "pt"),
+    # legend.spacing.y = unit(BASEPTFONTSIZE - 6, "pt"),
     axis.line = element_line(linewidth = BASELINEWIDTHSIZE, color = "#000000"),
     plot.title = element_blank(),
     axis.text.x = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
@@ -529,6 +535,7 @@ tfh_deg_plot <- tfh_deg %>%
   geom_segment(aes(x = 0, xend = avg_log2FC), linetype = "dotted") +
   geom_point(size = 0.75) +
   deLollipop_theme +
+  theme(axis.text.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", face = "italic")) +
   labs(y = "Gene", title = "Tfh cells\nRNA")
 
 
@@ -585,19 +592,26 @@ ccpos_plot_byBin_final <- ccpos_plot_byBin +
 # plot compilation
 ################################################################################
 layout <- c(
-  area(1, 1, 9, 8), # chronic heatmap
-  area(1, 9, 4, 12), # ded plots
-  area(5, 9, 6, 10), # deg/dea plots
+  area(1, 1, 9, 10), # chronic heatmap
+  area(1, 11, 4, 14), # ded plots
   area(5, 11, 6, 12), # deg/dea plots
-  area(7, 9, 8, 12) # tricycle
+  area(5, 13, 6, 14), # deg/dea plots
+  area(7, 11, 8, 14) # tricycle
 )
 
 set.seed(42)
 p <- wrap_elements(
   grid.grabExpr(draw(tmp + rightAnnot,
+    padding = unit(c(0, 5.5, 0, -55), "pt"),
     heatmap_legend_side = "bottom",
     annotation_legend_side = "bottom",
+    align_heatmap_legend = "heatmap_left",
+    align_annotation_legend = "heatmap_left",
+    legend_grouping = "original",
     merge_legend = TRUE))
+  # grid.grabExpr({
+  #   draw(tmp, padding = )
+  # })
   ) +
   free(ded_plots + theme(plot.tag = element_text(margin = margin(l = -65))), type = "space", side = "lr") +
   
@@ -619,12 +633,13 @@ p <- wrap_elements(
 
 saveFinalFigure(
   plot = p,
-  fn = "fig3_v3 ",
+  fn = "fig3_v4",
   prefixDir = "figures/outs",
   devices = c("png", "pdf"),
   addTimestamp = TRUE,
-  gwidth = 8.5,
-  gheight = 9)
+  units = "cm",
+  gwidth = JCI_MAX_WIDTH,
+  gheight = 9.1 * 2.54)
 
 
 sup_layout <- c(
@@ -652,7 +667,7 @@ sup_p <-
 
 saveFinalFigure(
   plot = sup_p,
-  fn = "supfig4_v2",
+  fn = "supfig4_v3",
   prefixDir = "figures/outs",
   devices = c("png", "pdf"),
   addTimestamp = TRUE,

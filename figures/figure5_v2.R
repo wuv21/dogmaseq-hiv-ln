@@ -208,8 +208,8 @@ propClusterOnlyTfhG <- propClusterDf %>%
     panel.spacing = unit(1.2, "lines"),
     axis.line = element_blank(),
     axis.text = element_text(color = "#000000"),
-    axis.text.x = element_text(size = BASEPTFONTSIZE - 2),
-    axis.text.y = element_text(size = BASEPTFONTSIZE - 2),
+    axis.text.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 2),
+    axis.text.y = element_text(color = "#000000", size = BASEPTFONTSIZE - 2),
     panel.grid = element_blank(),
     panel.grid.major.x = element_line(color = "#eeeeee", linetype = "dotted"),
     strip.text = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
@@ -260,13 +260,10 @@ prdmByDonorG <- prdmByDonor %>%
   ggpubr::stat_pvalue_manual(
     prdmByDonorCompiledStats, label = "{p.sym}",
     y.position = c(13.5, 0.35), size = BASEFONTSIZE * 0.6, vjust = 0, tip.length = 0.01) +
-  # stat_summary(geom = "bar", width = 0.6, fun = mean, fill = "#ffffff00", aes(color = infection)) +
   geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_hline(yintercept = 0, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_boxplot(outliers = FALSE, aes(color = infection), width = 0.6) +
   geom_jitter(aes(fill = infection), color = "#000000", pch = 21, height = 0, alpha = 0.75, size = 0.8, show.legend = FALSE, width = 0.2) +
-  # stat_summary(fun = mean_se_onlyPos, geom = "crossbar", width = 0.3, linewidth = 0.3) +
-  # stat_summary(fun.data = mean_se_onlyPosVertical, geom = "linerange", linewidth = 0.3) +
   facet_wrap(~ stage, scales = "free_y") +
   coord_cartesian(clip = "off") +
   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.08))) +
@@ -278,12 +275,12 @@ prdmByDonorG <- prdmByDonor %>%
     legend.position = "blank",
     axis.line = element_blank(),
     axis.text = element_text(color = "#000000"),
-    axis.text.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 1, angle = 45, hjust = 1, vjust = 1),
-    axis.text.y = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
+    axis.text.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 2, angle = 45, hjust = 1, vjust = 1),
+    axis.text.y = element_text(color = "#000000", size = BASEPTFONTSIZE - 2),
     panel.grid = element_blank(),
     panel.grid.major.y = element_line(color = "#eeeeee", linetype = "dotted"),
     strip.text = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
-    axis.title = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
+    axis.title.y = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
     axis.title.x = element_blank(),
     strip.background = element_rect(color = "#ffffff00", fill = NA)) +
   labs(y = "% HIV+ of\nPRDM1+ GC-Tfh cells")
@@ -350,17 +347,16 @@ depletionCompiledStats <- ggpubr::compare_means(percent ~ combinedFactor,
 depletionCompiledStats$p.sym <- pValSymnum(depletionCompiledStats$p.adj)
 depletionCompiledStats <- depletionCompiledStats %>%
   dplyr::filter(p.sym != "ns") %>%
-  dplyr::mutate(p.position = 105 - 4.75 * (row_number() %% 7)) %>%
+  dplyr::mutate(p.position = 115 - 5 * (row_number() %% 6)) %>%
   dplyr::select(-method, -p.signif, -p.format)
 
 depletionDfG <- depletionDf2 %>%
   ggplot(aes(y = percent, x = combinedFactor)) +
   geom_line(aes(group = donor), color = "#bbbbbb75", linewidth = 0.3) +
-  # stat_summary(geom = "bar", width = 0.6, fun = mean, fill = "#ffffff00", aes(color = stage)) +
   geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_hline(yintercept = 0, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
   geom_boxplot(outliers = FALSE, aes(color = stage), width = 0.6) +
-  geom_point(color = "#000000", pch = 21, alpha = 0.75, size = 0.8, show.legend = FALSE) +
+  geom_point(color = "#000000", pch = 21, alpha = 0.75, size = 0.7, show.legend = FALSE) +
   guides(x = legendry::guide_axis_nested(
     key = "_",
     type = "bracket",
@@ -372,8 +368,6 @@ depletionDfG <- depletionDf2 %>%
     depletionCompiledStats,
     label = "{p.sym}", y.position = "p.position",
     size = BASEFONTSIZE * 0.7, vjust = 0.4, tip.length = 0.007, hide.ns = TRUE) +
-  # stat_summary(fun = mean_se_onlyPos, geom = "crossbar", width = 0.3, linewidth = 0.3) +
-  # stat_summary(fun.data = mean_se_onlyPosVertical, geom = "linerange", linewidth = 0.3) +
   scale_color_manual(values = COLORS$stage) +
   coord_cartesian(clip = "off") +
   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.08))) +
@@ -388,7 +382,7 @@ depletionDfG <- depletionDf2 %>%
     panel.grid = element_blank(),
     panel.grid.major.y = element_line(color = "#eeeeee", linetype = "dotted"),
     strip.text = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
-    axis.title = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
+    axis.title.y = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
     axis.title.x = element_blank(),
     strip.background = element_rect(color = "#ffffff00", fill = NA)) +
   labs(y = "% of donor's Tfh cells")
@@ -455,7 +449,7 @@ deLollipopTheme <- theme(
   strip.clip = "off",
   strip.text = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
   strip.background = element_rect(color = "#00000000", fill = "#00000000"),
-  axis.text = element_text(color = "#000000"),
+  # axis.text = element_text(color = "#000000"),
   axis.text.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 2),
   axis.text.y = element_text(color = "#000000", size = BASEPTFONTSIZE - 2),
   axis.title.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
@@ -489,6 +483,7 @@ dea_blimp1G <- dea_blimp1 %>%
   labs(x = "Average log2(FC)") +
   deLollipopTheme +
   theme(
+    axis.text.y = element_text(color = "#000000", size = BASEPTFONTSIZE - 2),
     plot.margin = margin(r = -10, l = -25, t = 5, b = 5)
   )
 
@@ -576,6 +571,7 @@ deg_blimp1G <- deg_blimp1 %>%
   labs(x = "Average log2(FC)") +
   deLollipopTheme +
   theme(
+    axis.text.y = element_text(color = "#000000", size = BASEPTFONTSIZE - 2, face = "italic"),
     plot.margin = margin(r = -50, l = -10, t = 5, b = 5)
   )
 
@@ -832,19 +828,25 @@ p <- atacFigA + theme(plot.margin = margin(t = 0, b = -90)) +
   wrap_elements(full = rep_flow_gg + theme(plot.margin = margin(l = 0, r = 0, t = 10))) +
   free(organoid_g + 
       theme(
-        plot.margin = margin(l = 0),
+        plot.margin = margin(l = 0, r = -150),
         legend.box.margin = margin(l = 105),
-        plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "t") +
+        plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "tr") +
   free(organoid_g2 + 
       theme(
-        plot.margin = margin(l = 0),
-        plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "tl") +
+        plot.margin = margin(l = -20, r = -25),
+        plot.tag = element_text(margin = margin(l = 5))), type = "panel", side = "tlr") +
   plot_annotation(tag_levels = "A") +
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig5_v4", prefixDir = "figures/outs",
-  devices = c("png", "pdf"), gwidth = 8.5, gheight = 8,
+saveFinalFigure(
+  plot = p,
+  fn = "fig5_v4",
+  prefixDir = "figures/outs",
+  units = "cm",
+  devices = c("png", "pdf"),
+  gwidth = JCI_MAX_WIDTH,
+  gheight = 8 * 2.54,
   addTimestamp = TRUE)
 
 

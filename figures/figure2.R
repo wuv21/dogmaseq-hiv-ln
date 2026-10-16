@@ -19,14 +19,6 @@ source("figures/defaultFigureSettings.R")
 source("scripts/graphs.R")
 source("scripts/colorPalettes.R")
 
-
-# A HIV infection UMAP (separated by stage)
-# B HIV RNA/DNA upset plot (separated by stage)
-# C Cell counts by cell identity (separated by donor, stage) for HIV DNA+/- RNA+
-# D Cell counts by cell identity (separated by donor, stage) for HIV DNA+ RNA-
-# E Correlation with flow data
-# F? Gonzalo data (ca HIV DNA by subset) 
-
 ################################################################################
 # umaps
 ################################################################################
@@ -82,6 +74,52 @@ figA <- umapDf %>%
   theme_classic() +
   umapFig2Theme
 
+
+uniqAnnots <- sort(unique(umapDf$manualAnnot))
+annotColorScale <- nColorPalette(n = length(uniqAnnots))
+names(annotColorScale) <- uniqAnnots
+umapDf$manualAnnot <- factor(umapDf$manualAnnot, levels = uniqAnnots)
+umapDf$hivPos <- umapDf$hivStatus != "HIV-"
+
+
+## plot for david
+# p1 <- umapDf %>% 
+#   mutate(tmpStage = "All (by cell type)") %>%
+#   mutate(hivStatus = factor(hivStatus, levels = names(COLORS$hivStatus))) %>%
+#   ggplot(aes(x = `HarmonyLsiCleanForSeurat#UMAP_Dimension_1`, y = `HarmonyLsiCleanForSeurat#UMAP_Dimension_2`, color = manualAnnot)) +
+#   rasterize(geom_point(alpha = 0.6, size = 0.1, show.legend = FALSE), dpi = 300) +
+#   scale_color_manual(values = annotColorScale) +
+#   facet_wrap(~ tmpStage, nrow = 1) +
+#   labs(x = "UMAP 1", y = "UMAP 2") +
+#   theme_classic() +
+#   umapFig2Theme
+  
+# p2df <- umapDf %>% 
+#   # mutate(hivStatus = factor(hivStatus, levels = names(COLORS$hivStatus))) %>%
+#   arrange(hivPos) %>%
+#   dplyr::group_by(stage) %>%
+#   dplyr::mutate(nHivCells = sum(hivPos)) %>%
+#   dplyr::mutate(nStage = n()) %>%
+#   dplyr::mutate(stage2 = glue("{stage} donors\n{nHivCells} HIV+ cells ({round(nHivCells / nStage * 100, 2)}%)"))
+# 
+# tmp <- p2df %>%
+#   group_by(stage, stage2) %>%
+#   summarize(totalCells = n())
+# 
+# new_labels <- tmp$stage2
+# names(new_labels) <- tmp$stage
+# 
+# p2 <- ggplot(p2df, aes(x = `HarmonyLsiCleanForSeurat#UMAP_Dimension_1`, y = `HarmonyLsiCleanForSeurat#UMAP_Dimension_2`, color = as.character(hivPos))) +
+#   rasterize(geom_point(alpha = 0.6, size = 0.1, show.legend = FALSE), dpi = 300) +
+#   # guides(colour = guide_legend(override.aes = list(size = 4), nrow = 1)) +
+#   labs(x = "UMAP 1", y = "UMAP 2") +
+#   facet_wrap(~ stage, nrow = 1, labeller = as_labeller(new_labels)) +
+#   scale_color_manual(values = c("TRUE" = "#ff0000", "FALSE" = "#cccccc80")) +
+#   theme_classic() +
+#   umapFig2Theme
+# 
+# saveFinalFigure(p2, fn = "grant_fig", prefixDir = "figures/outs", devices = "png", gheight = 4, gwidth = 4)
+# saveFinalFigure(p1 + p2 + plot_layout(widths = c(1, 3)), fn = "grant_fig", prefixDir = "figures/outs", devices = "png", gheight = 4, gwidth = 6)
 
 ################################################################################
 # detection upset
@@ -228,11 +266,11 @@ figDnaLol <- ggplot(figCData, aes(x = percentStage, y = cluster, color = stage))
   theme_classic() +
   fig2LollipopTheme +
   geom_linerange(aes(xmin = 0, xmax = percentStage), linetype = "dotted") +
-  geom_point() +
-  geom_text(aes(label = percentStageLabel, x = percentStage), hjust = -0.1, size = BASEFONTSIZE) +
+  geom_point(size = 0.75) +
+  geom_text(aes(label = percentStageLabel, x = percentStage), hjust = -0.1, size = 6 / ggplot2:::.pt) +
   facet_wrap(~ stage, labeller = as_labeller(figCSumDict)) +
   coord_cartesian(clip = "off") +
-  scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.4))) +
+  scale_x_continuous(limits = c(0, 25), expand = expansion(mult = c(0, 0))) +
   scale_color_manual(values = COLORS$stage) +
   labs(x = "% of HIV DNA+ RNA- cells per stage")
 
@@ -264,11 +302,11 @@ figRnaLol <- ggplot(figDData, aes(x = percentStage, y = cluster, color = stage))
   theme_classic() +
   fig2LollipopTheme +
   geom_linerange(aes(xmin = 0, xmax = percentStage), linetype = "dotted") +
-  geom_point() +
-  geom_text(aes(label = percentStageLabel, x = percentStage), hjust = -0.1, size = BASEFONTSIZE) +
+  geom_point(size = 0.75) +
+  geom_text(aes(label = percentStageLabel, x = percentStage), hjust = -0.1, size = 6 / ggplot2:::.pt) +
   facet_wrap(~ stage, labeller = as_labeller(figDSumDict)) +
   coord_cartesian(clip = "off") +
-  scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.4))) +
+  scale_x_continuous(limits = c(0, 25), expand = expansion(mult = c(0, 0))) +
   scale_color_manual(values = COLORS$stage) +
   labs(x = "% of HIV DNA+/- RNA+ cells per stage")
 
@@ -286,8 +324,8 @@ tmp <- data.frame(
   dplyr::group_by(donor, stage, infection, manualAnnot) %>%
   dplyr::tally(name = "totalCells") %>%
   dplyr::mutate(isTfh = grepl("Tfh", manualAnnot)) %>%
-  dplyr::mutate(isTfh = ifelse(isTfh, "Tfh", "Other")) %>%
-  dplyr::mutate(isTfh = factor(isTfh, levels = c("Other", "Tfh"))) %>%
+  dplyr::mutate(isTfh = ifelse(isTfh, "Tfh", "Non-Tfh")) %>%
+  dplyr::mutate(isTfh = factor(isTfh, levels = c("Non-Tfh", "Tfh"))) %>%
   dplyr::mutate(infection = factor(infection, levels = names(COLORS$hivStatus))) %>%
   dplyr::group_by(donor, stage, infection, isTfh, .drop = FALSE) %>%
   dplyr::summarize(nCells = sum(totalCells)) %>%
@@ -300,12 +338,13 @@ tmp <- data.frame(
   dplyr::filter(totalCellsInGroup > 10) %>% # filtering for donors with at least 10 HIV+ cells
   dplyr::mutate(propOfHIVPos = nCells / sum(nCells)) %>%
   dplyr::mutate(propOfHIVPos = ifelse(is.nan(propOfHIVPos), 0, propOfHIVPos)) %>%
-  dplyr::mutate(xlbl = paste(infection2, isTfh))
+  dplyr::mutate(xlbl = paste0(isTfh, "\n", infection2)) %>%
+  dplyr::mutate(xlbl = factor(xlbl, levels = c("Non-Tfh\nDNA+", "Tfh\nDNA+", "Non-Tfh\nRNA+", "Tfh\nRNA+")))
 
 figTfhCompStats <- ggpubr::compare_means(
   propOfHIVPos ~ xlbl,
   group.by = c("infection", "stage"),
-  p.adjust.method = "bonferroni",
+  p.adjust.method = "holm",
   method = "wilcox.test",
   data = tmp)
 figTfhCompStats$p.sym <- pValSymnum(figTfhCompStats$p.adj)
@@ -326,14 +365,16 @@ figTfh <- ggplot(tmp, aes(x = xlbl, y = propOfHIVPos * 100)) +
   theme(
     plot.margin = margin(t = -180),
     panel.spacing = unit(0, "lines"),
+    panel.spacing.y = unit(-0.1, "lines"),
     axis.line = element_line(linewidth = BASELINEWIDTHSIZE),
     axis.text.y = element_text(color = "#000000", size = BASEPTFONTSIZE),
-    axis.text.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 2),
+    axis.text.x = element_text(color = "#000000", size = BASEPTFONTSIZE - 1),
     panel.grid = element_blank(),
     panel.background = element_rect(color = "#00000000", fill = "#00000000"),
     plot.background = element_rect(color = "#00000000", fill = "#00000000"),
     strip.text = element_text(color = "#000000", size = BASEPTFONTSIZE),
-    axis.title = element_text(color = "#000000", size = BASEPTFONTSIZE),
+    axis.title.y = element_text(color = "#000000", size = BASEPTFONTSIZE),
+    axis.title.x = element_blank(),
     strip.background = element_rect(color = "#ffffff00", fill = "#ffffff00")) +
   labs(
     x = "Cell phenotype",
@@ -379,7 +420,8 @@ figTfhCorr <- dogmaCondensed %>%
   stat_cor(
     aes(label = paste(after_stat(rr.label), after_stat(p.label), sep = "~`,`~")), p.digits = 3,
     label.x = 1,
-    size = BASEFONTSIZE * 0.85,
+    label.y = c(50, 45, 40),
+    size = 6 / ggplot2:::.pt,
     show.legend = FALSE
   ) +
   scale_color_manual(values = COLORS$stage) +
@@ -405,8 +447,8 @@ figTfhCorr <- dogmaCondensed %>%
   labs(
     title = "",
     shape = "Stage",
-    x = "GC-TFH (% of Memory CD4 T cells) from flow",
-    y = "% Tfh from scDOGMAseq")
+    x = "GC-TFH (% of Mem CD4 T) by flow",
+    y = "% Tfh by scDOGMAseq")
 
 
 ################################################################################
@@ -518,7 +560,7 @@ props2 <- props %>%
   dplyr::mutate(xaxislbl = factor(xaxislbl, levels = unique(xaxislbl)))
 
 propStats <- ggpubr::compare_means(rgs2 ~ xaxislbl,
-  props2, paired = FALSE)
+  props2, paired = FALSE, p.adjust.method = "holm")
 
 propStats$p.sym <- pValSymnum(propStats$p.adj)
 propStats <- propStats %>%
@@ -546,6 +588,7 @@ pRGS <- ggplot(props2, aes(x = xaxislbl, y = rgs2)) +
   theme(
     axis.line = element_line(linewidth = BASELINEWIDTHSIZE, color = "#000000"),
     axis.text.x = element_text(color = "#000000", size = BASEPTFONTSIZE),
+    axis.text.y = element_text(color = "#000000", size = BASEPTFONTSIZE),
     axis.title.x = element_blank(),
     text = element_text(color = "#000000", size = BASEPTFONTSIZE),
     legend.position = "blank",
@@ -571,7 +614,7 @@ teachDf2 <- teachDf_base %>%
 
 figTeachDnaStats <- ggpubr::compare_means(
   dna ~ timepoint,
-  p.adjust.method = "bonferroni",
+  p.adjust.method = "holm",
   paired = TRUE,
   method = "wilcox.test",
   data = teachDf2)
@@ -599,7 +642,7 @@ figTeachDna <- ggplot(teachDf2, aes(x = timepoint, y = dna)) +
 
 figTeachCompStats <- ggpubr::compare_means(
   percent_vDNA ~ param,
-  p.adjust.method = "bonferroni",
+  p.adjust.method = "holm",
   method = "wilcox.test",
   data = teachDf)
 figTeachCompStats$p.sym <- pValSymnum(figTeachCompStats$p.adj)
@@ -615,12 +658,13 @@ figTeach <- ggplot(teachDf) +
     y.position = 110, bracket.shorten = 0.4, size = BASEFONTSIZE * 0.85, vjust = 0) +
   labs(
     y  = "% vDNA+",
-    x = "Anatomical location",
+    # x = "Anatomical location",
     fill = "Timepoint (weeks)") +
   theme(
     axis.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
     text = element_text(size = BASEPTFONTSIZE, color = "#000000"), 
-    axis.title = element_text(size = BASEPTFONTSIZE, color = "#000000"), 
+    axis.title.y = element_text(size = BASEPTFONTSIZE, color = "#000000"), 
+    axis.title.x = element_blank(), 
     axis.line = element_line(linewidth = BASELINEWIDTHSIZE),
     legend.title = element_text(size = BASEPTFONTSIZE, color = "#000000"),
     legend.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
@@ -647,58 +691,190 @@ rightSidePanel <- pRGS /
   plot_layout(heights = c(1, 2, 1, 1))
 
 
+####
+# PD1 stuff
+####
+selectGenesForAtac <- c("PDCD1", "CXCR5", "BCL6", "PRDM1", "CCR5", "TGFB1", "FOXP3", "IL2RA")
+atacGeneScores <- tryCatch({
+  tmp <- ArchR:::.getMatrixValues(
+    ArchRProj = projUnhashedClean,
+    name = selectGenesForAtac,
+    matrixName = "GeneScoreMatrix",
+    log2Norm = FALSE,
+    threads = getArchRThreads()
+  )
+},
+  error = function(cond) {
+    message(conditionMessage(cond))
+    # Choose a return value in case of error
+    return(NULL)
+  })
+
+atacGeneScoresImputed <- imputeMatrix(
+  mat = as.matrix(atacGeneScores),
+  imputeWeights = getImputeWeights(projUnhashedClean))
+
+atacGeneScoresImputed <- log2(atacGeneScoresImputed + 1)
+
+atacImputedDf <- data.frame(
+  cbc = projUnhashedClean$cellNames,
+  manualAnnot = projUnhashedClean$manualAnnot,
+  hivPos = projUnhashedClean$hivPos,
+  stage = projUnhashedClean$stage
+)
+rownames(atacImputedDf) <- atacImputedDf$cbc
+atacImputedDf[colnames(atacGeneScoresImputed), selectGenesForAtac] <- t(atacGeneScoresImputed)
+
+
+atacImputedDf <- atacImputedDf %>%
+  pivot_longer(cols = -any_of(c("cbc", "manualAnnot", "hivPos", "stage")), names_to = "feature", values_to = "exp") %>%
+  dplyr::mutate(stage = factor(stage, levels = names(COLORS$stage))) %>%
+  dplyr::mutate(hivPos = factor(hivPos, levels = c("HIV+", "HIV-")))
+
+supAtacPd1 <- atacImputedDf %>%
+  dplyr::filter(feature == "PDCD1") %>%
+  ggplot(aes(y = hivPos, x = exp)) +
+  ggridges::geom_density_ridges(rel_min_height = 0.01, scale = 0.75, alpha = 0.8, aes(fill = hivPos)) +
+  geom_vline(xintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
+  geom_hline(yintercept = -Inf, linewidth = BASELINEWIDTHSIZE, color = "#000000") +
+  facet_wrap(~ stage, ncol = 1) +
+  coord_cartesian(clip = "off") +
+  scale_fill_manual(values = c("HIV+" = "#ff0000", "HIV-" = "#999999")) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(size = BASEPTFONTSIZE - 1, color = "#000000", angle = 45, hjust = 1, vjust = 1),
+    axis.text.y = element_text(size = BASEPTFONTSIZE - 1, color = "#000000"),
+    strip.text = element_text(size = BASEPTFONTSIZE, color = "#000000"),
+    strip.background = element_rect(color = "#00000000", fill = "#00000000"),
+    legend.position = "blank",
+    panel.grid.major = element_line(color = "#cfcfcf50"),
+    axis.line = element_blank(),
+    axis.title.x = element_text(size = BASEPTFONTSIZE - 1, color = "#000000"),
+    axis.title.y = element_blank()) +
+  labs(
+    x = expression("imputed log2(counts + 1) for" ~ italic("PDCD1")))
+
+pd1_rna_df <- FetchData(seuMerged, vars = c("PDCD1", "A0088", "manualAnnot", "stage", "hivPos"), layer = "data")
+
+pd1_rna_df2 <- pd1_rna_df %>%
+  dplyr::mutate(hivPos = factor(hivPos, levels = c("HIV-", "HIV+"))) %>%
+  dplyr::filter(stage != "HIV-") %>%
+  dplyr::mutate(stage = ifelse(stage == "Chronic", "Viremic", stage)) %>%
+  dplyr::mutate(stage = factor(stage, levels = c("Viremic", "ART"))) %>%
+  tidyr::complete(stage, hivPos)
+
+supRnaPd1 <- ggplot(pd1_rna_df2, aes(x = stage, y = PDCD1, fill = hivPos)) +
+  geom_violin(
+    scale = "width",
+    trim = TRUE,
+    colour = "black",
+    linewidth = 0.3,
+    width = 0.75,
+    position = position_dodge(width = 0.75)) +
+  rasterize(geom_jitter(
+    position = position_jitterdodge(dodge.width = 0.75, jitter.width = 0.3),
+    size = 0.2,
+    alpha = 0.3, show.legend = FALSE), dpi = 300) +
+  scale_fill_manual(values = c("HIV+" = "#ff0000", "HIV-" = "#999999")) +
+  labs(
+    title = "*PDCD1* RNA",
+    y = "Normalized expression level",
+    x = "Stage") +
+  guides(fill = guide_legend(override.aes = list(size = 1))) +
+  theme_classic() +
+  theme(
+    legend.title = element_blank(),
+    axis.title.x = element_text(size = BASEPTFONTSIZE - 1),
+    axis.title.y = element_text(size = BASEPTFONTSIZE - 1),
+    axis.text.x = element_text(size = BASEPTFONTSIZE - 1, color = "#000000"),
+    axis.text.y = element_text(size = BASEPTFONTSIZE - 1, color = "#000000"),
+    legend.position = "inside",
+    legend.position.inside = c(0.85, 0.85),
+    legend.key.size = unit(0.3, units = "cm"),
+    plot.title = element_markdown(hjust = 0.5, size = BASEPTFONTSIZE))
+
+
+
 ################################################################################
 # final compilation
 ################################################################################
 layout <- c(
   area(1, 1, 2, 4), # umaps
   area(1, 5, 2, 6), # upset plots
-  # area(1, 7, 2, 9), # distance
   area(3, 1, 5, 6), # dna lol
   area(6, 1, 8, 6), # rna lol
   area(1, 7, 8, 9) # right side
-  # area(3, 7, 4, 9), # tfh comp
-  # area(5, 7, 6, 9), # tfh corr
-  # area(7, 7, 8, 9) # gonzalo data?
-  # area(5, 1, 8, 9) #d
 )
 
 p <- wrap_elements(full = figA) +
   wrap_elements(full = figB) +
   wrap_elements(full = figDnaLol) +
   wrap_elements(full = figRnaLol) +
-  # wrap_elements(full = figDist) +
-  # wrap_elements(full = figTfh) + 
-    # theme(plot.tag = element_text(margin = margin(t = -75))) +
-  # wrap_elements(full = figTfhCorr) +
-  # wrap_elements(full = figTeach) + 
-    # theme(plot.tag = element_text(margin = margin(t = -20))) +
   free(rightSidePanel) +
   plot_annotation(tag_levels = list(c("A", "B", "D", "E", "C", "F", "G", "H"))) +
   plot_layout(design = layout) &
   plotTagTheme
 
-saveFinalFigure(plot = p, fn = "fig2_v3", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 8.5, gheight = 10, addTimestamp = TRUE)
+saveFinalFigure(
+  plot = p,
+  fn = "fig2_v3",
+  prefixDir = "figures/outs",
+  devices = c("png", "pdf"),
+  gwidth = JCI_MAX_WIDTH,
+  gheight = JCI_MAX_HEIGHT,
+  units = "cm",
+  addTimestamp = TRUE)
 
 
 supLayout <- c(
-  area(1, 1, 6, 2),
-  area(1, 3, 6, 4),
-  area(7, 1, 9, 6),
-  area(10, 1, 12, 6),
-  area(1, 5, 2, 6),
-  area(3, 5, 6, 6)
+  area(1, 1, 6, 3),
+  area(1, 4, 6, 6),
+  area(7, 1, 9, 6)
+  # area(10, 1, 12, 6),
+  # area(1, 5, 2, 6),
+  # area(3, 5, 6, 6)
 )
 
 supP <- wrap_elements(full = supFigUpsetVir) +
   wrap_elements(full = supFigUpsetArt) +
   wrap_elements(full = fullCovgPlot) +
-  wrap_elements(full = flow_sort_strat_gg) +
-  wrap_elements(full = figTeachDna) +
-  wrap_elements(panel = tissue_gg) +
   plot_annotation(tag_levels = "A") +
   plot_layout(design = supLayout) &
   plotTagTheme
 
-saveFinalFigure(plot = supP, fn = "supfig3_v3", prefixDir = "figures/outs", devices = c("png", "pdf"), gwidth = 8, gheight = 11, addTimestamp = TRUE)
+saveFinalFigure(
+  plot = supP,
+  fn = "supfig3-1_v4",
+  prefixDir = "figures/outs",
+  devices = c("png", "pdf"),
+  gwidth = 6.5,
+  gheight = 8,
+  addTimestamp = TRUE)
+
+supLayout2 <- c(
+  area(1, 1, 3, 4),
+  area(4, 1, 5, 2),
+  area(4, 3, 5, 4),
+  area(1, 5, 2, 6),
+  area(3, 5, 5, 6)
+)
+
+
+supP2 <- wrap_elements(full = flow_sort_strat_gg) +
+  wrap_elements(full = supAtacPd1) +
+  wrap_elements(full = supRnaPd1) +
+  wrap_elements(full = figTeachDna) +
+  wrap_elements(panel = tissue_gg) +
+  plot_annotation(tag_levels = "A") +
+  plot_layout(design = supLayout2) &
+  plotTagTheme
+
+saveFinalFigure(
+  plot = supP2,
+  fn = "supfig3-2_v1",
+  prefixDir = "figures/outs",
+  devices = c("png", "pdf"),
+  gwidth = 8,
+  gheight = 6,
+  addTimestamp = TRUE)
 
