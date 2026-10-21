@@ -731,6 +731,30 @@ atacImputedDf <- atacImputedDf %>%
   dplyr::mutate(stage = factor(stage, levels = names(COLORS$stage))) %>%
   dplyr::mutate(hivPos = factor(hivPos, levels = c("HIV+", "HIV-")))
 
+atacImputedDf %>%
+  dplyr::filter(feature == "PDCD1" & exp >= 0.8) %>%
+  dplyr::group_by(stage, hivPos, manualAnnot) %>%
+  dplyr::tally() %>%
+  dplyr::group_by(stage, hivPos) %>%
+  dplyr::mutate(percentOfStageAndHIV = n / sum(n) * 100) %>%
+  dplyr::slice_max(percentOfStageAndHIV, n = 5) %>%
+  print(n = 30)
+  
+data.frame(
+  donor = projUnhashedClean$donorClean2,
+  stage = projUnhashedClean$stage,
+  manualAnnot = projUnhashedClean$manualAnnot
+) %>%
+  dplyr::group_by(donor, stage, manualAnnot) %>%
+  dplyr::tally() %>%
+  dplyr::group_by(donor, stage) %>%
+  dplyr::mutate(propOfDonor = n / sum(n) * 100) %>%
+  dplyr::filter(grepl("Tfh", manualAnnot)) %>%
+  ggplot(aes(x = manualAnnot, y = propOfDonor, color = stage)) +
+  geom_point() +
+  geom_boxplot(outliers = FALSE, fill = NA) +
+  facet_wrap(~ stage, nrow = 1)
+
 supAtacPd1 <- atacImputedDf %>%
   dplyr::filter(feature == "PDCD1") %>%
   ggplot(aes(y = hivPos, x = exp)) +
@@ -877,4 +901,3 @@ saveFinalFigure(
   gwidth = 8,
   gheight = 6,
   addTimestamp = TRUE)
-

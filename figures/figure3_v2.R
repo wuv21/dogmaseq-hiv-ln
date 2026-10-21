@@ -28,26 +28,6 @@ uniqStages <- c("Viremic", "ART")
 uniqInfection <- names(COLORS$hivStatus)
 
 
-## murad analysis
-#BTN3A1, #BTN2A1
-#
-
-
-seuMerged_hivneg <- subset(seuMerged, subset = stage == "HIV-")
-VlnPlot(seuMerged_hivneg, features = c("BTN3A1", "BTN2A1"), group.by = "manualAnnot", pt.size = 0.6, alpha = 0.5)
-
-
-seuMerged_chronic <- subset(seuMerged, subset = stage == "Viremic")
-seuMerged_chronic$manualAnnot
-VlnPlot(seuMerged_chronic, features = c("BTN3A1", "BTN2A1"), group.by = "manualAnnot", pt.size = 0.6, alpha = 0.5)
-VlnPlot(seuMerged_chronic, features = c("BTN3A1", "BTN2A1"), group.by = "hivStatus", pt.size = 0.2, alpha = 0.5)
-
-VlnPlot(seuMerged, features = c("BTN3A1", "BTN2A1"), group.by = "manualAnnotBin", pt.size = 0.2, alpha = 0.3, split.by = 'stage')
-
-DotPlot(seuMerged_chronic, features = c("BTN3A1", "BTN2A1"))
-
-
-
 ################################################################################
 # epigenetic analysis
 ################################################################################
@@ -456,26 +436,24 @@ ccpos_plot_final <- ccpos_plot +
 
 ccpos_tests <- c(
   ks.test(
-    x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV DNA+/- RNA+"],
-    y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV DNA+ RNA-"])$p,
-  
-  
-  ks.test(
-    x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV DNA+/- RNA+"],
-    y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV-"])$p,
+    x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivPos == "HIV+"],
+    y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivPos == "HIV-"], exact = TRUE)$p,
   
   ks.test(
-    x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV DNA+ RNA-"],
-    y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV-"])$p)
+    x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV DNA+/- RNA+"],
+    y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivStatus == "HIV DNA+ RNA-"], exact = TRUE)$p)
 
+p.adjust(ccpos_tests, method = "BH")
 
 ks.test(
   x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivPos == "HIV+" & seuMergedChronic$manualAnnotBin == "Tfh"],
-  y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivPos == "HIV-" & seuMergedChronic$manualAnnotBin == "Tfh"])
+  y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivPos == "HIV-" & seuMergedChronic$manualAnnotBin == "Tfh"],
+  exact = TRUE)
 
 ks.test(
   x = seuMergedChronic$tricyclePosition[seuMergedChronic$hivPos == "HIV+" & seuMergedChronic$manualAnnotBin == "Tfh"],
-  y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivPos == "HIV-" & seuMergedChronic$manualAnnotBin == "Tfh"])
+  y = seuMergedChronic$tricyclePosition[seuMergedChronic$hivPos == "HIV-" & seuMergedChronic$manualAnnotBin == "Tfh"],
+  exact = TRUE)
 
 ################################################################################
 # supplemental figure

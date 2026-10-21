@@ -72,7 +72,7 @@ figA <- ComplexHeatmap::Heatmap(
   matrix = t(scale(t(uniq_deg_mat))),
   name = " ",
   row_km = 12,
-  row_names_gp = gpar(fontsize = 4),
+  row_names_gp = gpar(fontsize = 4, fontface = "italic"),
   row_title_gp = gpar(fontsize = 6),
   row_dend_width = unit(8, "points"),
   column_title_gp = gpar(fontsize = 0),
@@ -162,6 +162,7 @@ figB_mod <- figB +
     axis.text = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
     axis.title = element_blank(),
     axis.text.x = element_markdown(angle = 45, hjust = 1, vjust = 1, size = BASEPTFONTSIZE),
+    axis.text.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", face = "italic"),
     legend.title = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", hjust = 0.5),
     legend.text = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", hjust = 0),
     panel.grid.major.y = element_line(color = "#cfcfcf30"),
@@ -379,6 +380,7 @@ all_deg_plot <- all_deg_mast %>%
   geom_segment(aes(x = 0, xend = avg_log2FC), linetype = "dotted") +
   geom_point(size = lollipop_point_size) +
   deLollipop_theme +
+  theme(axis.text.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", face = "italic")) +
   labs(y = "Gene", title = "All cells\nRNA")
 
 fill_sig_dict <- c(
@@ -409,6 +411,7 @@ tem_deg_plot <- tem_deg_mast %>%
   geom_point(fill = "#ffffff00", shape = 21, size = lollipop_point_size) +
   deLollipop_theme +
   scale_fill_manual(values = fill_sig_dict) +
+  theme(axis.text.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", face = "italic")) +
   labs(y = "Gene", title = "Tem/Th1 cells\nRNA")
 
 tem_dea_plot <- tem_dea_lr %>%
@@ -454,6 +457,7 @@ tcm_deg_plot <- tcm_deg_mast %>%
   geom_point(fill = "#ffffff00", shape = 21, size = lollipop_point_size) +
   deLollipop_theme +
   scale_fill_manual(values = fill_sig_dict) +
+  theme(axis.text.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", face = "italic")) +
   labs(y = "Gene", title = "Tcm/Th2 cells\nRNA")
 
 tcm_dea_plot <- tcm_dea_lr %>%

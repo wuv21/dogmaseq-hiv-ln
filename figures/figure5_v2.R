@@ -90,7 +90,7 @@ atacFigA <- atacImputedDf %>%
   theme(
     axis.text.x = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", angle = 45, hjust = 1, vjust = 1),
     axis.text.y = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
-    strip.text = element_text(size = BASEPTFONTSIZE - 1, color = "#000000"),
+    strip.text = element_text(size = BASEPTFONTSIZE - 1, color = "#000000", face = "italic"),
     strip.background = element_rect(color = "#00000000", fill = "#00000000"),
     legend.position = "blank",
     panel.grid.major = element_line(color = "#cfcfcf50"),
@@ -109,7 +109,7 @@ rnaFigB_mod <- rnaFigB +
   theme(
     axis.text = element_text(size = BASEPTFONTSIZE - 2, color = "#000000"),
     axis.title = element_blank(),
-    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = BASEPTFONTSIZE - 1),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = BASEPTFONTSIZE - 1, face = "italic"),
     legend.title = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", hjust = 0.5),
     legend.text = element_text(size = BASEPTFONTSIZE - 2, color = "#000000", hjust = 0),
     panel.grid.major.y = element_line(color = "#cfcfcf30"),
